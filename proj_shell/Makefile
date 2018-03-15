@@ -1,19 +1,28 @@
 # Compiler and Compile options.
-C = gcc
-CXXFLAGS = -g -Wall
+CC = gcc
+CFLAGS = -g -Wall -I $(INC)
+
+# Directories for Compile
+SRCDIR=src/
+INC=include/
+LIBS=lib/
+BIN = bin/
 
 # Macros specifying path for compile.
-SRCS := $(wildcard src/*.c) 
+SRCS := $(wildcard $(SRCDIR)*.c) 
 OBJS := $(SRCS:.c=.o)
-BIN = ./bin/
 
 # Compile command.
 TARGET = shell
-$(TARGET):$(OBJS)
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+		$(foreach src, $(SRCS),$(shell $(CC) $(CFLAGS) -o $(src:.c=.o) -c $(src)))
 		mkdir -p $(BIN)
-		$(CC) $(CPPFLAGS) -o $(BIN)$(TARGET) $(SRCS)
+		$(CC) $(CFLAGS) -o $(BIN)$@ $^
 
 # Delete binary & object files.
 clean:
-	rm -f $(BIN)$(TARGET) $(OBJS)
-	rm -df $(BIN)
+	rm -f $(OBJS)
+	rm -rf $(BIN)
