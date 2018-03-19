@@ -27,6 +27,7 @@ More than two arguments for the shell program will result in error.
 	- It can be easily changed. Please check #define at shell.h to change the limitation.<br/>
 	Nothing more than changing #define in shell.h is required.
 - Some shell commands such as"cd, exit ..." will not work due to restriction of **execvp** function.
+- If you don't like **"prompt > "**. Please consider changing **"PS1"** from **"shell.h"**
 
 
 # Code Guidance
@@ -63,7 +64,7 @@ Notice that argv is declared as 2d array and carefully freed for any error or be
 ### trim_whitespace()
 
 **This function is written by Adam Rosenfield. Please check "shell.h" for further information.**<br/>
-Function checks if there is unnecessary leading and trailing whitespaces from string, and truncate it. trimmed string will be saved to **char *out**.
+Function checks if there is unnecessary leading and trailing whitespaces from string, and truncate it. trimmed string will be saved to **char \*out**.
 
 ### sig_fn()
 
