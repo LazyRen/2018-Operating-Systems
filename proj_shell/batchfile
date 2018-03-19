@@ -1,0 +1,3 @@
+ls
+/bin/ls -al
+ls;; pwd ;ls -a
