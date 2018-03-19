@@ -12,16 +12,16 @@
 //the maximum length of command line input
 #define MAX_CMDLINE 1024
 //the maximum parsable commands
-#define MAX_PARSED_CMD 100
+#define MAX_PARSED_CMD 128
 //the maximum number of arguments
-#define MAX_ARGUMENT 10
+#define MAX_ARGUMENT 16
 
 struct sigaction act;
 const char* PS1 = "prompt > ";
 char cmdline_input[MAX_CMDLINE + 1];
 
 //Function will parse & trim the command line and use fork to process multiple
-//commands at a same time
+//commands at a same time. Execution of each command will be dealt by execute_cmd function.
 void execute_cmdline();
 
 //This is the actual function that will be used by child process to run each shell command
