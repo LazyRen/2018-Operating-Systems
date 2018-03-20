@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <ctype.h>
+#include <sys/types.h>
 
 //the maximum length of command line input
 #define MAX_CMDLINE 1024
