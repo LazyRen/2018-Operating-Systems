@@ -118,7 +118,7 @@ void execute_cmd(char *cmd)
 		}
 		parsed_argv = strtok(NULL, " ");
 	}
-	//after parsing all arguments, make sure to free unused memories, 
+	//after parsing all arguments, make sure to free unused memories,
 	//and put NULL at the end of argv before pass execvp.
 	for (int i = argc; i < MAX_ARGUMENT + 1; ++i)
 		free(argv[i]);
