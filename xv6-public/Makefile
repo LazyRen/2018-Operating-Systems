@@ -28,7 +28,6 @@ OBJS = \
 	vectors.o\
 	vm.o\
 	prac_syscall.o\
-	prac_getppid.o\
 
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = i386-jos-elf
