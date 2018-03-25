@@ -14,9 +14,9 @@
 //the maximum length of command line input
 #define MAX_CMDLINE 1024
 //the maximum parsable commands
-#define MAX_PARSED_CMD 128
+#define MAX_PARSED_CMD 1024
 //the maximum number of arguments
-#define MAX_ARGUMENT 16
+#define MAX_ARGUMENT 32
 
 struct sigaction act;
 const char* PS1 = "prompt > ";

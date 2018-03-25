@@ -96,6 +96,7 @@ void execute_cmd(char *cmd)
 			return;
 		}
 		strncpy(argv[argc++], parsed_argv, strlen(parsed_argv));
+		printf("argv[%d]:[%s]\n", argc-1, argv[argc-1]);
 		if (argc == 1) {//check the command if it is "quit"
 			for (int i = 0; argv[0][i]; ++i)
 				argv[0][i] = tolower(argv[0][i]);
@@ -109,7 +110,7 @@ void execute_cmd(char *cmd)
 				return;
 			}
 		}
-		if (argc > MAX_ARGUMENT) {//too many arguments error
+		if (argc >= MAX_ARGUMENT) {//too many arguments error
 			fprintf(stderr, "number of arguments must be less than %d.\n", MAX_ARGUMENT);
 			for (int i = 0; i < MAX_ARGUMENT + 1; ++i)
 				free(argv[i]);
@@ -125,9 +126,7 @@ void execute_cmd(char *cmd)
 	argv[argc] = NULL;
 
 	if (execvp(argv[0], argv) == -1) {
-		//if execvp behaves properly, it will execute command and free all memories
-		//that it had at the execution time, but if there is an error, I must take the responsibility
-		//to free allocated memory.
+		//if execvp behaves properly, it will execute command and free all memories that it had at the execution time, but if there is an error, I must take the responsibility to free allocated memory.
 		fprintf(stderr, "Failed to execute execvp\n");
 		fprintf(stderr, "command: %s\n", argv[0]);
 		for (int i = 0; i < argc; ++i)
