@@ -25,11 +25,20 @@ int main(int argc, char **argv)
 			exit(0);
 		}
 		while(1) {//until EOF is reached
+			char trimmed_cmd[MAX_PARSED_CMD];
+
 			if (fgets(cmdline_input, MAX_CMDLINE, fp) == NULL) {
 				//fgets() == NULL means EOF. Therefore terminate.
 				return 0;
 			}
-			execute_cmdline();
+			trim_whitespace(trimmed_cmd, MAX_PARSED_CMD, cmdline_input);
+			if (strlen(trimmed_cmd) == 0)
+				continue;
+			else {
+				strncpy(cmdline_input, trimmed_cmd, strlen(trimmed_cmd));
+				printf("commandline: %s\n", cmdline_input);
+				execute_cmdline();
+			}
 		}
 	}
 	else {//more than 2 arguments for the program is received.
@@ -45,7 +54,6 @@ void execute_cmdline()
 	pid_t pid;
 	char* parsed_cmd;
 	char trimmed_cmd[MAX_PARSED_CMD];
-
 	parsed_cmd = strtok(cmdline_input, ";");
 	while (parsed_cmd != NULL) {//parse all commands separated by ";"
 		switch (pid = fork()) {
@@ -61,7 +69,6 @@ void execute_cmdline()
 					exit(0);
 				}
 				trim_whitespace(trimmed_cmd, MAX_PARSED_CMD, parsed_cmd);
-				printf("%s\n", trimmed_cmd);
 				execute_cmd(trimmed_cmd);//execution of each command will be handled by diffrent function.
 				exit(0);
 				break;
@@ -129,7 +136,6 @@ void execute_cmd(char *cmd)
 	if (execvp(argv[0], argv) == -1) {
 		//if execvp behaves properly, it will execute command and free all memories that it had at the execution time, but if there is an error, I must take the responsibility to free allocated memory.
 		fprintf(stderr, "Failed to execute execvp\n");
-		fprintf(stderr, "command: %s\n", argv[0]);
 		for (int i = 0; i < argc; ++i)
 			free(argv[i]);
 		free(argv);
