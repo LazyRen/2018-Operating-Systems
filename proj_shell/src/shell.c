@@ -97,7 +97,7 @@ void execute_cmd(char *cmd)
 			return;
 		}
 		strncpy(argv[argc++], parsed_argv, strlen(parsed_argv));
-		printf("argv[%d]:[%s]\n", argc-1, argv[argc-1]);
+		// printf("argv[%d]:[%s]\n", argc-1, argv[argc-1]);
 		if (argc == 1) {//check the command if it is "quit"
 			for (int i = 0; argv[0][i]; ++i)
 				argv[0][i] = tolower(argv[0][i]);
