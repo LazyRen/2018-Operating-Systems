@@ -118,7 +118,7 @@ void execute_cmd(char *cmd)
 				return;
 			}
 		}
-		if (argc >= MAX_ARGUMENT) {//too many arguments error
+		if (argc > MAX_ARGUMENT) {//too many arguments error
 			fprintf(stderr, "number of arguments must be less than %d.\n", MAX_ARGUMENT);
 			for (int i = 0; i < MAX_ARGUMENT + 1; ++i)
 				free(argv[i]);
@@ -139,6 +139,8 @@ void execute_cmd(char *cmd)
 		for (int i = 0; i < argc; ++i)
 			free(argv[i]);
 		free(argv);
+		//exit() may cause undefined behavior in the case of batch mod with illegal command.
+		//sending SIGINT to program itself will terminate and process rest of the commands.
 		kill(getpid(), SIGINT);
 	}
 }
