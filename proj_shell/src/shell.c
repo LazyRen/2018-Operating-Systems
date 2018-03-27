@@ -61,6 +61,7 @@ void execute_cmdline()
 					exit(0);
 				}
 				trim_whitespace(trimmed_cmd, MAX_PARSED_CMD, parsed_cmd);
+				printf("%s\n", trimmed_cmd);
 				execute_cmd(trimmed_cmd);//execution of each command will be handled by diffrent function.
 				exit(0);
 				break;
@@ -132,7 +133,7 @@ void execute_cmd(char *cmd)
 		for (int i = 0; i < argc; ++i)
 			free(argv[i]);
 		free(argv);
-		return;
+		kill(getpid(), SIGINT);
 	}
 }
 
