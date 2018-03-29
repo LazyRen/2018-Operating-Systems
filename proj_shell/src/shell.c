@@ -10,7 +10,7 @@ int main(int argc, char **argv)
 		while(1) {
 			printf("%s", PS1);
 			if (fgets(cmdline_input, MAX_CMDLINE, stdin) == NULL) {
-				//when nothing but "ctrl + D" is pressed, EOF will cause trouble with fgets.
+				//when nothing but "ctrl + D" is pressed, EOF will cause fgets to return NULL. Terminate program immediately
 				return 0;
 			}
 			// printf("%s", cmdline_input);
@@ -25,14 +25,14 @@ int main(int argc, char **argv)
 			exit(0);
 		}
 		while(1) {//until EOF is reached
-			char trimmed_cmd[MAX_PARSED_CMD];
+			char trimmed_cmd[MAX_CMDLINE];
 
 			if (fgets(cmdline_input, MAX_CMDLINE, fp) == NULL) {
 				//fgets() == NULL means EOF. Therefore terminate.
 				return 0;
 			}
 			trim_whitespace(trimmed_cmd, MAX_PARSED_CMD, cmdline_input);
-			if (strlen(trimmed_cmd) == 0)
+			if (strlen(trimmed_cmd) == 0)//blank line
 				continue;
 			else {
 				strncpy(cmdline_input, trimmed_cmd, strlen(trimmed_cmd));
@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 			}
 		}
 	}
-	else {//more than 2 arguments for the program is received.
+	else {//more than 2 arguments for the program are received.
 		printf("Only one batchfile can be processed at a time.\n");
 		printf("\t\tUSAGE\n");
 		printf("Interactive mode: %s\n", argv[0]);
@@ -69,11 +69,12 @@ void execute_cmdline()
 					exit(0);
 				}
 				trim_whitespace(trimmed_cmd, MAX_PARSED_CMD, parsed_cmd);
-				execute_cmd(trimmed_cmd);//execution of each command will be handled by diffrent function.
+				//execution of each command will be handled by diffrent function.
+				execute_cmd(trimmed_cmd);
 				exit(0);
 				break;
 			default: //parent process
-				//does nothing and continue to parse commandline
+				//does nothing and go back to continue to parse commandline
 				break;
 		}
 		parsed_cmd = strtok(NULL, ";");
@@ -139,8 +140,8 @@ void execute_cmd(char *cmd)
 		for (int i = 0; i < argc; ++i)
 			free(argv[i]);
 		free(argv);
-		//exit() may cause undefined behavior in the case of batch mod with illegal command.
-		//sending SIGINT to program itself will terminate and process rest of the commands.
+		//exit() may cause undefined behavior in the case of batch mod with illegal command execution.
+		//sending SIGINT to program itself will terminate child process and parent process will deal with rest of the commands.
 		kill(getpid(), SIGINT);
 	}
 }
@@ -181,6 +182,8 @@ static void sig_fn(int signo)
 {
 	//Simply waits for any remaining child process to finish
 	//after all commands are executed, terminate shell
+	//in the case of child process(execvp retun -1),
+	//it will terminate immediately.
 	while(wait(NULL) > 0);
 	exit(0);
 }
