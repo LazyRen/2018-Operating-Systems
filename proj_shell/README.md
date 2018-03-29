@@ -8,7 +8,7 @@ This is the basic user-level unix shell that can be used to run simple commands 
 
 This shell supports two types of mod.
 - Interactive mode
-	- If the execution file starts **without any argument**, shell is started as an interactive mode.
+	- If the execution file starts **without any argument**, shell starts as an interactive mode.
 	- In this mod, user can type multiple commands within one commandline using **";"**, or keep typing any number of commandlines.
 	- To exit from the interactive mode, press **"ctrl + D"** or type **"quit"** as a command.
 - Batch mode
@@ -21,9 +21,9 @@ This shell supports two types of mod.
 
 - If you want to run batchfile, remember that only one batchfile can be run at a time.<br/>
 More than two arguments for the shell program will result in error.
-- Each **commandline**'s maximum length is 1024 characters 
+- Each **commandline**'s maximum length is 1024 characters
 - Each **command**(separated by ";" within commandline)'s max length is 128.
-- Maximum **number of argument** for each command is 16. 
+- Maximum **number of argument** for each command is 16.
 	- It can be easily changed. Please check #define at shell.h to change the limitation.<br/>
 	Nothing more than changing #define in shell.h is required.
 - Some shell commands such as"cd, exit ..." will not work due to restriction of **execvp** function.
@@ -59,6 +59,9 @@ execute_cmd will only deals with separating aruments and executing actual comman
 2. check if the command is **quit**. If so, send **SIGINT** to parent process to terminate program.
 3. execute command using execvp().<br/>
 
+If execvp fails(return -1) it will raise SIGINT to itself to end the process.
+It's because for some reason exit(0) makes next parsed commands run twice for the next commands at the batch mode. Therefore SIGINT will make sure the child process is terminated immediately.
+
 Notice that argv is declared as 2d array and carefully freed for any error or before execution of execvp to make sure there is no memory-leak.
 
 ### trim_whitespace()
@@ -68,9 +71,10 @@ Function checks if there is unnecessary leading and trailing whitespaces from st
 
 ### sig_fn()
 
-This function is called only when "quit" command is received.<br/>
-Child process will raise SIGINT to parent process which will invoke this function.<br/>
+This function is called when "quit" command is received or child wants to terminate it self due to the error.<br/>
+At the receive of "quit", child process will raise SIGINT to parent process which will invoke this function for the parent process.<br/>
 It Simply waits for any remaining child process to finish after all commands are executed, terminate shell program.
+If execvp is failed for the child process, it will raise SIGINT for itself. sig_fn will make process terminate immediately since wait(NULL) will return -1 immediately.
 
 # Screenshots
 
