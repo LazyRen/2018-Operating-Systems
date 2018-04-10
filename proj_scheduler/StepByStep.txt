@@ -1,0 +1,11 @@
+18.4.11
+https://www.youtube.com/watch?v=DZ0-GMtOtEc
+https://github.com/shreyakamath2311/Xv6-MLFQ-Scheduler
+https://github.com/marf/xv6-scheduling
+
+1. create int priority in struct proc from proc.h
+2. allocproc will set priority to 0 (proc.c allocproc() function)
+3. from exec.c add curproc->priority = 0; on line 102 -> so that process can have priority when it starts to execute maybe? idk...
+4. create queue & MLFQ structure in queue.h & queue.c
+	> TODO add queue related functions to "defs.h" for visibility.
+5. implement sys_yield by followint the steps from lab03.

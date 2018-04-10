@@ -130,6 +130,7 @@ static int (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_myfunction]	sys_myfunction,
 [SYS_getppid]	sys_getppid,
+[SYS_yield]   sys_yield,
 };
 
 void
