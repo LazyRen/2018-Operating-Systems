@@ -7,9 +7,12 @@
 #include "proc.h"
 #include "spinlock.h"
 
+#define NULL 0
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
+  struct mlfq mlfq;
 } ptable;
 
 static struct proc *initproc;
@@ -19,6 +22,39 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+void
+push(struct proc* queue[], struct proc *p)
+{
+  for (int i = 0; i < NPROC; i++) {
+    if (queue[i] == NULL) {
+      for (int j = i; j > 0; j--)
+        queue[j] = queue[j-1];
+      queue[0] = p;
+      return;
+    }
+  }
+
+  panic("failed to find empty place from queue\n");
+}
+
+struct proc*
+pop(struct proc* queue[])
+{
+  struct proc* ret = NULL;
+  for (int i = 0; i < NPROC; i++) {
+    if (queue[i] == NULL)
+      continue;
+    if (queue[i]->state != RUNNABLE)
+      continue;
+    ret = queue[i];
+    for (int j = i; j < NPROC - 1; j++)
+      queue[j] = queue[j + 1];
+    queue[NPROC-1] = NULL;
+    break;
+  }
+  return ret;
+}
 
 void
 pinit(void)
@@ -38,10 +74,10 @@ struct cpu*
 mycpu(void)
 {
   int apicid, i;
-  
+
   if(readeflags()&FL_IF)
     panic("mycpu called with interrupts enabled\n");
-  
+
   apicid = lapicid();
   // APIC IDs are not guaranteed to be contiguous. Maybe we should have
   // a reverse map, or reserve a register to store &cpus[i].
@@ -88,6 +124,9 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->ticks = 0;
+  p->priority = 0;
+  push(ptable.mlfq.queue[0], p);
 
   release(&ptable.lock);
 
@@ -124,7 +163,7 @@ userinit(void)
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
   p = allocproc();
-  
+
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
@@ -275,7 +314,7 @@ wait(void)
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
-  
+
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for exited children.
@@ -325,7 +364,7 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -418,7 +457,7 @@ void
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
-  
+
   if(p == 0)
     panic("sleep");
 
