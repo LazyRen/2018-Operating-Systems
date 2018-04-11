@@ -25,7 +25,6 @@ int sleep(int);
 int uptime(void);
 int myfunction(char*);
 int getppid(void);
-int yield();
 
 // ulib.c
 int stat(char*, struct stat*);
