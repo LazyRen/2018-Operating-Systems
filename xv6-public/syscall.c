@@ -6,7 +6,6 @@
 #include "proc.h"
 #include "x86.h"
 #include "syscall.h"
-#include "proc.c"
 
 // User code makes a system call with INT T_SYSCALL.
 // System call number in %eax.
