@@ -38,8 +38,25 @@ push(struct proc* queue[], struct proc *p)
 	panic("failed to find empty place from queue\n");
 }
 
+void
+pop(struct proc* p)
+{
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < NPROC; j++) {
+			if (ptable.mlfq.queue[i][j] == NULL)
+				continue;
+			if (p != ptable.mlfq.queue[i][j])
+				continue;
+			for (int k = j; k < NPROC - 1; k++)
+				ptable.mlfq.queue[i][k] = ptable.mlfq.queue[i][k+1];
+			ptable.mlfq.queue[i][NPROC-1] = NULL;
+			break;
+		}
+	}
+}
+
 struct proc*
-pop(struct proc* queue[])
+top(struct proc* queue[])
 {
 	struct proc* ret = NULL;
 	for (int i = 0; i < NPROC; i++) {
@@ -48,9 +65,6 @@ pop(struct proc* queue[])
 		if (queue[i]->state != RUNNABLE)
 			continue;
 		ret = queue[i];
-		for (int j = i; j < NPROC - 1; j++)
-			queue[j] = queue[j + 1];
-		queue[NPROC-1] = NULL;
 		break;
 	}
 	return ret;
@@ -335,6 +349,7 @@ wait(void)
 				p->name[0] = 0;
 				p->killed = 0;
 				p->state = UNUSED;
+				pop(p);
 				release(&ptable.lock);
 				return pid;
 			}
@@ -372,9 +387,9 @@ scheduler(void)
 
 		// Loop over process table looking for process to run.
 		acquire(&ptable.lock);
-
 		for (int i = 0; i < 3; i++) {
-			while ((p = pop(ptable.mlfq.queue[0])) != NULL) {
+			p = top(ptable.mlfq.queue[i]);
+			while (p != 0) {
 				c->proc = p;
 				switchuvm(p);
 				p->state = RUNNING;
@@ -382,6 +397,7 @@ scheduler(void)
 				switchkvm();
 
 				c->proc = 0;
+				p = top(ptable.mlfq.queue[i]);
 			}
 		}
 		release(&ptable.lock);
