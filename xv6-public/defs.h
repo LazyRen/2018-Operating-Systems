@@ -192,5 +192,8 @@ int		printk_str(char*);
 //prac_getppid.c
 int		getppid(void);
 
+//proc.c
+void	yield(void);
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
