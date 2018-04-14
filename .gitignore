@@ -1,2 +1,4 @@
 cscope.*
 *.sublime*
+tmp.sh
+.DS_Store
