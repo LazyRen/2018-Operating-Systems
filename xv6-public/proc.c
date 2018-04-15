@@ -8,6 +8,7 @@
 #include "spinlock.h"
 
 #define NULL 0
+#define PBOOST 100
 
 struct {
   struct spinlock lock;
@@ -16,12 +17,21 @@ struct {
 } ptable;
 
 static struct proc *initproc;
-
+uint runningticks;
 int nextpid = 1;
+
 extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+void printprocinfo(struct proc *p)
+{
+  cprintf("priority : %d\n", p->priority);
+  cprintf("cur tick : %d\n", p->ticks);
+
+  return;
+}
 
 void
 push(struct proc* queue[], struct proc *p)
@@ -77,12 +87,8 @@ top(struct proc* queue[], int priority)
 void
 droppriority(struct proc* p)
 {
-  if(!holding(&ptable.lock))
-    acquire(&ptable.lock);
-
   pop(p);
   push(ptable.mlfq.queue[p->priority+1], p);
-
   switch(p->priority) {
     case 0:
       p->ticks = 0;
@@ -97,19 +103,14 @@ droppriority(struct proc* p)
       p->timeallotment = 100;
       break;
     default:
-      release(&ptable.lock);
       panic("failed to identify priority");
   }
-  release(&ptable.lock);
 }
 
 void
 boostpriority(void)
 {
   struct proc *p;
-
-  if(!holding(&ptable.lock))
-    acquire(&ptable.lock);
 
   for (int i = 1; i < 3; i++) {
     int *rr = &ptable.mlfq.index[i];
@@ -127,7 +128,6 @@ boostpriority(void)
     }
   }
   ptable.mlfq.index[1] = ptable.mlfq.index[2] = 0;
-  release(&ptable.lock);
 }
 
 int
@@ -470,6 +470,12 @@ scheduler(void)
         switchuvm(p);
         p->state = RUNNING;
         swtch(&(c->scheduler), p->context);
+        p->ticks++;
+        runningticks++;
+        if (p->priority != 2 && p->ticks >= p->timeallotment)
+          droppriority(p);
+        if (runningticks % PBOOST == 0)
+          boostpriority();
         switchkvm();
 
         c->proc = 0;

@@ -9,7 +9,8 @@
 #include "stat.h"
 #include "user.h"
 
-#define LIFETIME        200000000   // (iteration)
+// #define LIFETIME        200000000   // (iteration)
+#define LIFETIME        200000   // (iteration)
 #define YIELD_PERIOD    10000       // (iteration)
 
 // Number of level(priority) of MLFQ scheduler

@@ -3,25 +3,25 @@ https://www.youtube.com/watch?v=DZ0-GMtOtEc
 https://github.com/shreyakamath2311/Xv6-MLFQ-Scheduler
 https://github.com/marf/xv6-scheduling
 
-1. create int priority, ticks, timequantum, timeallotment in struct proc from proc.h
-2. allocproc will set priority to 0 (proc.c allocproc() function), ticks to 0
-	timequantum to 1, timeallotment to 5
-3. create queue & MLFQ structure in proc.c
-4. create functions (push, top, pop) for the queue structure.
+1. 	Create int priority, ticks, timequantum, timeallotment in struct proc from proc.h
+2. 	Allocproc will set priority to 0 (proc.c allocproc() function), ticks to 0
+	timequantum to 1, timeallotment to 5 - which is basically setting to default(highest queue).
+3. 	Create queue & MLFQ structure in proc.c
+4. 	Create functions (push, top, pop) for the queue structure.
+	and droppriority, boostpriority functions for mlfq.
 	In order to use functions, you must acquire ptable lock for the safety.
-5. implement sys_yield by following the steps from lab03.
-6. find functions calling allocproc using cscope (userinit & fork)
+5. 	Implement sys_yield by following the steps from lab03.
+6.  Find functions calling allocproc using cscope (userinit & fork)
 	both functions contains acquire(&ptable.lock) & release to make proc RUNNABLE
 	add push(ptable.mlfq.queue[0], p); to process MLFQ
-7. -std=gnu99 added for Makefile inoder to run native in osX
+
+18.4.15
+7.  -std=gnu99 added for Makefile inoder to run native in osX
 	make TOOLPREFIX=i386-elf- CPUS=1 qemu-nox
-8.  from trap.c if trapno is IRQ_TIMER, myproc()->ticks++;
-	and yield only if ticks > timequantum.
-9.	create droppriority() & boostpriority() function in proc.c it will be used in trap.c
-	note that unlike other created function, these functions acquire and relase ptable.lock within function.
-	It's because these functions will be used in trap.c file, and because of abstraction level of ptable,
-	it is fairy impossible(and not recommanded) to acquire & release ptable.lock from trap.c by itself.
-10. implemented more precise round robin by using index to start after the last excuted proc.(int *rr and index[i])
-11. from trap.c use PBOOST(set to 100) to call boostpriority() to prevent starvation of MLFQ
-12.	add all created functions to defs.h
-13. add sys_getlev and make testcode runnable for xv6 see lab3 for further information.
+8.  From trap.c make sure time interrupt yield only if ticks > timequantum.
+9. 	Implemented more precise round robin by using index to start after the last excuted proc.(int *rr and index[i])
+10. From now on, we will monitor the ticks of global and for each proc from scheduler function right after
+	swtch(&(c->scheduler), p->context); Meaning all drop,boost priority will also be handled in here.
+11.	add all created functions to defs.h
+12. add sys_getlev and make testcode runnable for xv6 see lab3 for further information.
+		Tese Succeed. MLFQ implementation done.
