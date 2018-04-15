@@ -7,6 +7,7 @@
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
+#define PBOOST 100
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
@@ -50,7 +51,11 @@ trap(struct trapframe *tf)
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
       acquire(&tickslock);
+      if (myproc())
+        myproc()->ticks++;
       ticks++;
+      if (ticks % PBOOST)
+        boostpriority();
       wakeup(&ticks);
       release(&tickslock);
     }
@@ -103,8 +108,13 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER)
-    yield();
+     tf->trapno == T_IRQ0+IRQ_TIMER) {
+    if (myproc()->ticks % myproc()->timequantum == 0) {
+      if (myproc()->priority != 2 && myproc()->ticks >= myproc()->timeallotment)
+        droppriority(myproc());
+      yield();
+    }
+  }
 
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)

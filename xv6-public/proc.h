@@ -51,6 +51,8 @@ struct proc {
   char name[16];               // Process name (debugging)
   int ticks;                   // Runtime of program before yield
   int priority;                // Current position of queue(if MLFQ)
+  int timequantum;             // maximum time program can run without timer interrupt
+  int timeallotment;           // priority will be decreased if reached.(lowest queue have -1)
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -61,4 +63,5 @@ struct proc {
 
 struct mlfq {
   struct proc *queue[3][NPROC]; // 0 is the highest priority
+  int index[3];
 };

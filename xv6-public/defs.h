@@ -120,6 +120,12 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+void			push(struct proc* queue[], struct proc *p);
+void			pop(struct proc* p);
+struct proc*	top(struct proc* queue[], int priority);
+void			droppriority(struct proc* p);
+void			boostpriority(void);
+int				getlev(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
