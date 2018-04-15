@@ -9,11 +9,13 @@
 
 #define NULL 0
 #define PBOOST 100
+#define MAXTICKET 10000
 
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
   struct mlfq mlfq;
+  int minpass;
 } ptable;
 
 static struct proc *initproc;
@@ -77,6 +79,8 @@ top(struct proc* queue[], int priority)
     if (queue[*rr] == NULL)
       continue;
     if (queue[*rr]->state != RUNNABLE)
+      continue;
+    if (queue[*rr]->tickets != 0)
       continue;
     ret = queue[*rr];
     break;
@@ -143,6 +147,48 @@ sys_getlev(void)
   return getlev();
 }
 
+// simply because we cannot include "ulib.c"
+// exported exact code from it.
+int
+atoi(const char *s)
+{
+  int n;
+
+  n = 0;
+  while('0' <= *s && *s <= '9')
+    n = n*10 + *s++ - '0';
+  return n;
+}
+
+int
+set_cpu_share(int percentage)
+{
+  struct proc* p = myproc();
+  int tickets = (int)(MAXTICKET * percentage/100.0);
+  acquire(&ptable.lock);
+  if (ptable.mlfq.tickets - tickets < MAXTICKET * 0.2) {
+    cprintf("MLFQ must have at least of 20%% tickets");
+    release(&ptable.lock);
+    return -1;
+  }
+  p->tickets = tickets;
+  p->pass = ptable.minpass;
+  ptable.mlfq.tickets -= tickets;
+  release(&ptable.lock);
+  return percentage;
+}
+
+int
+sys_set_cpu_share(void)
+{
+  int percentage;
+
+  if (argint(0, &percentage) < 0) {
+    return -1;
+  }
+  else
+    return set_cpu_share(percentage);
+}
 
 void
 pinit(void)
@@ -216,6 +262,8 @@ found:
   p->priority = 0;
   p->timequantum = 1;
   p->timeallotment = 5;
+  p->tickets = 0;
+  p->pass = ptable.minpass;
 
   release(&ptable.lock);
 
@@ -425,7 +473,10 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
-        pop(p);
+        if (p->tickets == 0)
+          pop(p);
+        ptable.mlfq.tickets += p->tickets;
+        p->tickets = 0;
         release(&ptable.lock);
         return pid;
       }
@@ -453,75 +504,76 @@ wait(void)
 void
 scheduler(void)
 {
-  struct proc *p;
+  struct proc *p = NULL;
   struct cpu *c = mycpu();
   c->proc = 0;
+  acquire(&ptable.lock);
+  ptable.mlfq.tickets = MAXTICKET;
+  release(&ptable.lock);
 
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for (int i = 0; i < 3; i++) {
-      p = top(ptable.mlfq.queue[i], i);
-      while (p != 0) {
-        c->proc = p;
-        switchuvm(p);
-        p->state = RUNNING;
-        swtch(&(c->scheduler), p->context);
-        p->ticks++;
-        runningticks++;
-        if (p->priority != 2 && p->ticks >= p->timeallotment)
-          droppriority(p);
-        if (runningticks % PBOOST == 0)
-          boostpriority();
-        switchkvm();
-
-        c->proc = 0;
-        p = top(ptable.mlfq.queue[i], i);
+    int minpass = ptable.mlfq.pass;
+    if (ptable.mlfq.tickets != MAXTICKET){
+      for (int i = 0; i < NPROC; i++) {
+        if (ptable.proc[i].tickets == 0 || ptable.proc[i].state != RUNNABLE)
+          continue;
+        if (minpass > ptable.proc[i].pass) {
+          p = &ptable.proc[i];
+          minpass = p->pass;
+        }
       }
+    }
+    ptable.minpass = minpass;
+    if (minpass == ptable.mlfq.pass) {//MLFQ
+      if (ptable.mlfq.tickets != MAXTICKET) {
+        ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets);
+        // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
+      }
+      for (int i = 0; i < 3; i++) {
+        p = top(ptable.mlfq.queue[i], i);
+        while (p != 0) {
+          c->proc = p;
+          switchuvm(p);
+          p->state = RUNNING;
+          swtch(&(c->scheduler), p->context);
+          // cprintf("p->tickets: %d\n", p->tickets);
+          p->ticks++;
+          runningticks++;
+          if (p->priority != 2 && p->ticks >= p->timeallotment)
+            droppriority(p);
+          if (runningticks % PBOOST == 0)
+            boostpriority();
+          switchkvm();
+
+          c->proc = 0;
+          p = top(ptable.mlfq.queue[i], i);
+        }
+      }
+    }
+    else {//stride
+      // cprintf("p pass: %d\n", p->pass);
+      if(p->state != RUNNABLE)
+        continue;
+      c->proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+
+      swtch(&(c->scheduler), p->context);
+      p->pass += (int)(MAXTICKET/p->tickets);
+      // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
+      switchkvm();
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
     }
     release(&ptable.lock);
   }
 }
-
-//old scheduler
-// void
-// scheduler(void)
-// {
-//  struct proc *p;
-//  struct cpu *c = mycpu();
-//  c->proc = 0;
-
-//  for(;;){
-//    // Enable interrupts on this processor.
-//    sti();
-
-//    // Loop over process table looking for process to run.
-//    acquire(&ptable.lock);
-//    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-//      if(p->state != RUNNABLE)
-//        continue;
-
-//      // Switch to chosen process.  It is the process's job
-//      // to release ptable.lock and then reacquire it
-//      // before jumping back to us.
-//      c->proc = p;
-//      switchuvm(p);
-//      p->state = RUNNING;
-
-//      swtch(&(c->scheduler), p->context);
-//      switchkvm();
-
-//      // Process is done running for now.
-//      // It should have changed its p->state before coming back.
-//      c->proc = 0;
-//    }
-//    release(&ptable.lock);
-
-//  }
-// }
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores

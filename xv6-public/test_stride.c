@@ -48,7 +48,7 @@ main(int argc, char *argv[])
 
       // Get current time
       curr_tick = uptime();
-
+      // printf(1, "life: %d\n", curr_tick - start_tick);
       if (curr_tick - start_tick > LIFETIME) {
         // Terminate process
         printf(1, "STRIDE(%d%%), cnt: %d\n", cpu_share, cnt);

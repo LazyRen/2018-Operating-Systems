@@ -46,7 +46,7 @@ main(int argc, char *argv[])
       exit();
     }
   }
-  
+
   for (i = 0; i < CNT_CHILD; i++) {
     wait();
   }

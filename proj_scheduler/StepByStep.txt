@@ -14,14 +14,21 @@ https://github.com/marf/xv6-scheduling
 6.  Find functions calling allocproc using cscope (userinit & fork)
 	both functions contains acquire(&ptable.lock) & release to make proc RUNNABLE
 	add push(ptable.mlfq.queue[0], p); to process MLFQ
-
-18.4.15
 7.  -std=gnu99 added for Makefile inoder to run native in osX
 	make TOOLPREFIX=i386-elf- CPUS=1 qemu-nox
+
+18.4.15
 8.  From trap.c make sure time interrupt yield only if ticks > timequantum.
 9. 	Implemented more precise round robin by using index to start after the last excuted proc.(int *rr and index[i])
 10. From now on, we will monitor the ticks of global and for each proc from scheduler function right after
 	swtch(&(c->scheduler), p->context); Meaning all drop,boost priority will also be handled in here.
 11.	add all created functions to defs.h
-12. add sys_getlev and make testcode runnable for xv6 see lab3 for further information.
+12. add sys_getlev and make testcode runnable for xv6 see lab03 for further information.
 		Tese Succeed. MLFQ implementation done.
+
+18.4.16
+1.	Define MAXTICKET, add stride, pass into proc structure & mlfq structure. Init them in allocproc
+2.	Add minpass to ptable.
+3.	Create set_cpu_share and make it as syscall by following the steps from lab03.
+4.	Change scheduler() to init stride related var. and make it run with both stride & MLFQ.
+5.	Change wait() to deal with end of stride proc.

@@ -53,6 +53,8 @@ struct proc {
   int priority;                // Current position of queue(if MLFQ)
   int timequantum;             // maximum time program can run without timer interrupt
   int timeallotment;           // priority will be decreased if reached.(lowest queue have -1)
+  int tickets;                 // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
+  int pass;                    // counter for stride sceduling
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -64,4 +66,6 @@ struct proc {
 struct mlfq {
   struct proc *queue[3][NPROC]; // 0 is the highest priority
   int index[3];
+  int tickets;
+  int pass;
 };
