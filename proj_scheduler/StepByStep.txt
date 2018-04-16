@@ -33,3 +33,5 @@ https://github.com/marf/xv6-scheduling
 4.	Change scheduler() to init stride related var. and make it run with both stride & MLFQ.
 5.	Change wait() to deal with end of stride proc.
 6.	Because of numerical error with int calculation ((100 / 3) * 3 != 100), calculate / operation first.
+
+

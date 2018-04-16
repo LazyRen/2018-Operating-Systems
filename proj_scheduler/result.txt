@@ -46,3 +46,21 @@ STRIDE(30%), cnt: 1162
 STRIDE(40%), cnt: 1744
 MLFQ(compute), lev[0]: 4502, lev[1]: 9616, lev[2]: 5883
 MLFQ(yield), lev[0]: 1023, lev[1]: 2035, lev[2]: 16943
+
+$ test_master
+MLFQ(compute), lev[0]: 3591, lev[1]: 7057, lev[2]: 9353
+MLFQ(compute), lev[0]: 3544, lev[1]: 7291, lev[2]: 9166
+MLFQ(yield), lev[0]: 2049, lev[1]: 4073, lev[2]: 13879
+MLFQ(yield), lev[0]: 2036, lev[1]: 4063, lev[2]: 13902
+
+$ test_master
+MLFQ(yield), lev[0]: 3985, lev[1]: 8001, lev[2]: 8015
+MLFQ(yield), lev[0]: 4010, lev[1]: 8001, lev[2]: 7990
+MLFQ(yield), lev[0]: 4002, lev[1]: 7981, lev[2]: 8018
+MLFQ(yield), lev[0]: 4010, lev[1]: 7997, lev[2]: 7994
+
+$ test_master
+MLFQ(compute), lev[0]: 3589, lev[1]: 7531, lev[2]: 8881
+MLFQ(compute), lev[0]: 4015, lev[1]: 7931, lev[2]: 8055
+MLFQ(compute), lev[0]: 3909, lev[1]: 7998, lev[2]: 8094
+MLFQ(compute), lev[0]: 3975, lev[1]: 7997, lev[2]: 8029

@@ -9,7 +9,7 @@
 
 #define NULL 0
 #define PBOOST 100
-#define MAXTICKET 10000
+#define MAXTICKET 1000000
 
 struct {
   struct spinlock lock;
@@ -27,22 +27,19 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
-void printprocinfo(struct proc *p)
-{
-  cprintf("priority : %d\n", p->priority);
-  cprintf("cur tick : %d\n", p->ticks);
-
-  return;
-}
-
+// push proc into queue.
+// It is not garanteed to be run firstly because
+// push is also used to drop priority. And it seems
+// not fair for the original procs to be scheduled back.
+// ptable.lock is required.
 void
 push(struct proc* queue[], struct proc *p)
 {
   for (int i = 0; i < NPROC; i++) {
     if (queue[i] == NULL) {
-      for (int j = i; j > 0; j--)
-        queue[j] = queue[j-1];
-      queue[0] = p;
+      // for (int j = i; j > 0; j--)
+      //   queue[j] = queue[j-1];
+      queue[i] = p;
       return;
     }
   }
@@ -50,6 +47,11 @@ push(struct proc* queue[], struct proc *p)
   panic("failed to find empty place from queue\n");
 }
 
+// Remove proc from the queue. Attempting to remove proc
+// that does not exist will cause panic.
+// It is guaranteed that next search will be started right
+// after the poped proc.
+// ptable.lock is required.
 void
 pop(struct proc* p)
 {
@@ -69,6 +71,10 @@ pop(struct proc* p)
   panic("failed to find proc in pop");
 }
 
+// Search for the first runnable proc without pop.
+// Note that rr & index is used to find
+// start location for the searching.
+// ptable.lock is required.
 struct proc*
 top(struct proc* queue[], int priority)
 {
@@ -88,6 +94,10 @@ top(struct proc* queue[], int priority)
   return ret;
 }
 
+// POP from original queue and PUSH to the next priority queue.
+// all var. relevent to priority will be changed.
+// Attempting to drop priority of least priority proc will cause panic.
+// ptable.lock is required.
 void
 droppriority(struct proc* p)
 {
@@ -111,6 +121,10 @@ droppriority(struct proc* p)
   }
 }
 
+// make all procs in MLFQ to get highest priority
+// in order to prevent starvation.
+// This is the only function that can cause priority boost.
+// ptable.lock is required.
 void
 boostpriority(void)
 {
@@ -134,6 +148,12 @@ boostpriority(void)
   ptable.mlfq.index[1] = ptable.mlfq.index[2] = 0;
 }
 
+// Returns priority of MLFQ.
+// Attempting to get priority of stride proc is
+// undefined behavior.
+// (Such action will not cause any panic, but the return value
+// has no meaning at all. It's just the last priority it had
+// before called get_cpu_share.)
 int
 getlev(void)
 {
@@ -141,43 +161,54 @@ getlev(void)
   return p->priority;
 }
 
+
+// Wrapper function for the getlev()
 int
 sys_getlev(void)
 {
   return getlev();
 }
 
-// simply because we cannot include "ulib.c"
-// exported exact code from it.
-int
-atoi(const char *s)
-{
-  int n;
-
-  n = 0;
-  while('0' <= *s && *s <= '9')
-    n = n*10 + *s++ - '0';
-  return n;
-}
-
+// Turn MLFQ into stride Scheduling
+// proc will be poped from MLFQ.
+// and gain ticket according to the percentage.
+// Total percentage of stride procs can not exceed 80%
+// One proc may call function more than once
+// If so, percentage will be set to the last call of function
+// and any remain or lacking tickets will be exchanged with MLFQ tickets.
 int
 set_cpu_share(int percentage)
 {
   struct proc* p = myproc();
   int tickets = (int)(MAXTICKET * percentage/100.0);
   acquire(&ptable.lock);
-  if (ptable.mlfq.tickets - tickets < MAXTICKET * 0.2) {
-    cprintf("MLFQ must have at least of 20%% tickets");
-    release(&ptable.lock);
-    return -1;
+
+  // set_cpu_share already called before
+  if (p->tickets != 0) {
+    int diff = tickets - p->tickets;
+    if (ptable.mlfq.tickets - diff < MAXTICKET/10 * 2) {
+      cprintf("MLFQ must have at least of 20%% tickets");
+      release(&ptable.lock);
+      return -1;
+    }
   }
-  p->tickets = tickets;
-  p->pass = ptable.minpass;
-  ptable.mlfq.tickets -= tickets;
-  release(&ptable.lock);
+  else {
+    if (ptable.mlfq.tickets - tickets < MAXTICKET/10 * 2) {
+      cprintf("MLFQ must have at least of 20%% tickets");
+      release(&ptable.lock);
+      return -1;
+    }
+    pop(p);
+    p->tickets = tickets;
+    p->pass = ptable.minpass;
+    ptable.mlfq.tickets -= tickets;
+    release(&ptable.lock);
+  }
+
   return percentage;
 }
 
+// Wrapper function for the set_cpu_share
 int
 sys_set_cpu_share(void)
 {
@@ -519,7 +550,12 @@ scheduler(void)
     sti();
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
+    //start checking pass val of all procs & MLFQ
     int minpass = ptable.mlfq.pass;
+
+    //mlfq.tickets == MAXTICKET means there is no stride proc for now.
+    //thus we can skip comparing part. Else look for the proc with min. pass.
     if (ptable.mlfq.tickets != MAXTICKET){
       for (int i = 0; i < NPROC; i++) {
         if (ptable.proc[i].tickets == 0 || ptable.proc[i].state != RUNNABLE)
@@ -531,15 +567,23 @@ scheduler(void)
       }
     }
     ptable.minpass = minpass;
-    if (minpass == ptable.mlfq.pass) {//MLFQ
+
+    // MLFQ scheduling
+    if (minpass == ptable.mlfq.pass) {
+      // If monopoly is set, there is no stride proc on the system for now.
+      // run all queues until empty. If stride proc is found while running,
+      // exit from the for loop.
+      // If not set, run only one proc from the queue and go back to
+      // finding min. pass.
       int done = 0, monopoly = 1;
+      // Increment stride pass for MLFQ only if there is other stride proc running.
       if (ptable.mlfq.tickets != MAXTICKET) {
         ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets);
         monopoly = 0;
       }
       for (int i = 0; i < 3; i++) {
         p = top(ptable.mlfq.queue[i], i);
-        while (p != 0 && (monopoly || !done)) {
+        while (p != NULL && (monopoly || !done)) {
           c->proc = p;
           switchuvm(p);
           p->state = RUNNING;
@@ -547,13 +591,20 @@ scheduler(void)
           done = 1;
           p->ticks++;
           runningticks++;
+          //Because MLFQ runs continuously, pass is increased by stride * quantum.
+          if (ptable.mlfq.tickets != MAXTICKET)
+            ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets) * (p->ticks - 1);
           // cprintf("p->tickets: %d\n", p->tickets);
+          // If more than 100 ticks after previous boost is detected.
+          // only calculates ticks occured during execution of MLFQ scheduling.
           if (runningticks >= nextboost) {
             nextboost = runningticks + 100;
             boostpriority();
           }
           if (p->priority != 2 && p->ticks >= p->timeallotment)
             droppriority(p);
+          if (p->tickets != 0)// set_cpu_share has been called for current proc.
+            monopoly = 0;
           switchkvm();
 
           c->proc = 0;
@@ -561,7 +612,8 @@ scheduler(void)
         }
       }
     }
-    else {//stride
+    // Stride Scheduling
+    else {
       // cprintf("p pass: %d\n", p->pass);
       if(p->state != RUNNABLE)
         continue;
