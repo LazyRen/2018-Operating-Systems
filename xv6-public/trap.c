@@ -13,6 +13,7 @@ struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
+extern uint runningticks;
 
 void
 tvinit(void)
@@ -104,10 +105,15 @@ trap(struct trapframe *tf)
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
      tf->trapno == T_IRQ0+IRQ_TIMER) {
-    if (myproc()->ticks >= myproc()->timequantum)
+    if (myproc()->tickets != 0)
       yield();
-    else
+    if (myproc()->ticks+1 >= myproc()->timequantum) {
+      yield();
+    }
+    else {
       myproc()->ticks++;
+      runningticks++;
+    }
   }
 
   // Check if the process has been killed since we yielded

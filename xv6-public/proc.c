@@ -506,6 +506,9 @@ scheduler(void)
 {
   struct proc *p = NULL;
   struct cpu *c = mycpu();
+  uint nextboost = 100;
+
+  runningticks = 0;
   c->proc = 0;
   acquire(&ptable.lock);
   ptable.mlfq.tickets = MAXTICKET;
@@ -529,24 +532,28 @@ scheduler(void)
     }
     ptable.minpass = minpass;
     if (minpass == ptable.mlfq.pass) {//MLFQ
+      int done = 0, monopoly = 1;
       if (ptable.mlfq.tickets != MAXTICKET) {
         ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets);
-        // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
+        monopoly = 0;
       }
       for (int i = 0; i < 3; i++) {
         p = top(ptable.mlfq.queue[i], i);
-        while (p != 0) {
+        while (p != 0 && (monopoly || !done)) {
           c->proc = p;
           switchuvm(p);
           p->state = RUNNING;
           swtch(&(c->scheduler), p->context);
-          // cprintf("p->tickets: %d\n", p->tickets);
+          done = 1;
           p->ticks++;
           runningticks++;
+          // cprintf("p->tickets: %d\n", p->tickets);
+          if (runningticks >= nextboost) {
+            nextboost = runningticks + 100;
+            boostpriority();
+          }
           if (p->priority != 2 && p->ticks >= p->timeallotment)
             droppriority(p);
-          if (runningticks % PBOOST == 0)
-            boostpriority();
           switchkvm();
 
           c->proc = 0;

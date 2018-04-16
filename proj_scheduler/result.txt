@@ -1,0 +1,48 @@
+$ test_master
+STRIDE(30%), cnt: 1298
+STRIDE(40%), cnt: 1928
+STRIDE(10%), cnt: 398
+MLFQ(compute), lev[0]: 6266, lev[1]: 13735, lev[2]: 0
+MLFQ(yield), lev[0]: 1018, lev[1]: 2044, lev[2]: 16939
+$ test_master
+STRIDE(30%), cnt: 1320
+STRIDE(40%), cnt: 2018
+STRIDE(10%), cnt: 415
+MLFQ(compute), lev[0]: 1845, lev[1]: 3544, lev[2]: 14612
+MLFQ(yield), lev[0]: 1024, lev[1]: 2045, lev[2]: 16932
+$ test_master
+STRIDE(40%), cnt: 1861
+STRIDE(30%), cnt: 1247
+STRIDE(10%), cnt: 384
+MLFQ(compute), lev[0]: 4856, lev[1]: 11257, lev[2]: 3888
+MLFQ(yield), lev[0]: 1026, lev[1]: 2041, lev[2]: 16934
+$ test_master
+STRIDE(40%), cnt: 1806
+STRIDE(30%), cnt: 1202
+STRIDE(10%), cnt: 376
+MLFQ(compute), lev[0]: 1352, lev[1]: 3071, lev[2]: 15578
+MLFQ(yield), lev[0]: 1017, lev[1]: 2037, lev[2]: 16947
+$ test_master
+STRIDE(10%), cnt: 359
+STRIDE(30%), cnt: 1189
+STRIDE(40%), cnt: 1804
+MLFQ(compute), lev[0]: 1319, lev[1]: 2628, lev[2]: 16054
+MLFQ(yield), lev[0]: 1028, lev[1]: 2046, lev[2]: 16927
+$ test_master
+STRIDE(40%), cnt: 1664
+STRIDE(10%), cnt: 335
+STRIDE(30%), cnt: 1141
+MLFQ(compute), lev[0]: 4228, lev[1]: 8857, lev[2]: 6916
+MLFQ(yield), lev[0]: 1018, lev[1]: 2034, lev[2]: 16949
+$ test_master
+STRIDE(30%), cnt: 1175
+STRIDE(40%), cnt: 1749
+STRIDE(10%), cnt: 360
+MLFQ(compute), lev[0]: 4309, lev[1]: 9412, lev[2]: 6280
+MLFQ(yield), lev[0]: 1012, lev[1]: 2044, lev[2]: 16945
+$ test_master
+STRIDE(10%), cnt: 342
+STRIDE(30%), cnt: 1162
+STRIDE(40%), cnt: 1744
+MLFQ(compute), lev[0]: 4502, lev[1]: 9616, lev[2]: 5883
+MLFQ(yield), lev[0]: 1023, lev[1]: 2035, lev[2]: 16943
