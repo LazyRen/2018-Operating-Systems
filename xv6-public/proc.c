@@ -14,8 +14,8 @@
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
-  struct mlfq mlfq;
-  int minpass;
+  struct mlfq mlfq;         // mlfq structure added
+  int minpass;              //minimum pass value of all proc.
 } ptable;
 
 static struct proc *initproc;
@@ -26,6 +26,25 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+// push newely created proc into highest priority queue.
+// only diffrence between initpush & push is whether the input proc isaaaaaaaaa
+// guaranteed to be executed for the next time.
+void
+initpush(struct proc* queue[], struct proc *p)
+{
+  for (int i = 0; i < NPROC; i++) {
+    if (queue[i] == NULL) {
+      for (int j = i; j > 0; j--)
+        queue[j] = queue[j-1];
+      queue[0] = p;
+      ptable.mlfq.index[0] = -1;
+      return;
+    }
+  }
+
+  panic("failed to find empty place from queue\n");
+}
 
 // push proc into queue.
 // It is not garanteed to be run firstly because
@@ -45,6 +64,29 @@ push(struct proc* queue[], struct proc *p)
   }
 
   panic("failed to find empty place from queue\n");
+}
+
+// Search for the first runnable proc without pop.
+// Note that rr & index is used to find
+// start location for the searching.
+// ptable.lock is required.
+struct proc*
+top(struct proc* queue[], int priority)
+{
+  int *rr = &ptable.mlfq.index[priority];
+  struct proc *ret = NULL;
+  for (int i = 0; i < NPROC; i++) {
+    *rr = (*rr + 1) % NPROC;
+    if (queue[*rr] == NULL)
+      continue;
+    if (queue[*rr]->state != RUNNABLE)
+      continue;
+    if (queue[*rr]->tickets != 0)
+      continue;
+    ret = queue[*rr];
+    break;
+  }
+  return ret;
 }
 
 // Remove proc from the queue. Attempting to remove proc
@@ -69,29 +111,6 @@ pop(struct proc* p)
     }
   }
   panic("failed to find proc in pop");
-}
-
-// Search for the first runnable proc without pop.
-// Note that rr & index is used to find
-// start location for the searching.
-// ptable.lock is required.
-struct proc*
-top(struct proc* queue[], int priority)
-{
-  int *rr = &ptable.mlfq.index[priority];
-  struct proc *ret = NULL;
-  for (int i = 0; i < NPROC; i++) {
-    *rr = (*rr + 1) % NPROC;
-    if (queue[*rr] == NULL)
-      continue;
-    if (queue[*rr]->state != RUNNABLE)
-      continue;
-    if (queue[*rr]->tickets != 0)
-      continue;
-    ret = queue[*rr];
-    break;
-  }
-  return ret;
 }
 
 // POP from original queue and PUSH to the next priority queue.
@@ -356,7 +375,7 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
-  push(ptable.mlfq.queue[0], p);
+  initpush(ptable.mlfq.queue[0], p);
 
   release(&ptable.lock);
 }
@@ -423,7 +442,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
-  push(ptable.mlfq.queue[0], np);
+  initpush(ptable.mlfq.queue[0], np);
 
   release(&ptable.lock);
 
@@ -541,6 +560,8 @@ scheduler(void)
 
   runningticks = 0;
   c->proc = 0;
+
+  //set MLFQ tickets to MAXTICKET. 100% cpu share.
   acquire(&ptable.lock);
   ptable.mlfq.tickets = MAXTICKET;
   release(&ptable.lock);
@@ -581,7 +602,12 @@ scheduler(void)
         ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets);
         monopoly = 0;
       }
-      for (int i = 0; i < 3; i++) {
+      int i = 0;
+      for (;;) {
+        int boosted = 0;
+
+        if (i >= 3)
+          break;
         p = top(ptable.mlfq.queue[i], i);
         while (p != NULL && (monopoly || !done)) {
           c->proc = p;
@@ -600,6 +626,8 @@ scheduler(void)
           if (runningticks >= nextboost) {
             nextboost = runningticks + 100;
             boostpriority();
+            boosted = 1;
+            break;
           }
           if (p->priority != 2 && p->ticks >= p->timeallotment)
             droppriority(p);
@@ -608,8 +636,15 @@ scheduler(void)
           switchkvm();
 
           c->proc = 0;
-          p = top(ptable.mlfq.queue[i], i);
+          if (boosted)
+            p = NULL;
+          else
+            p = top(ptable.mlfq.queue[i], i);
         }
+        if (boosted)
+          i = 0;
+        else
+          i++;
       }
     }
     // Stride Scheduling

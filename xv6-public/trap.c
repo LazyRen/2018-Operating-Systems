@@ -104,7 +104,7 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER) {
+    tf->trapno == T_IRQ0+IRQ_TIMER) {
     if (myproc()->tickets != 0) //In case of stride scheduling, yield every single time interrupt(1tick)
       yield();
     if (myproc()->ticks+1 >= myproc()->timequantum) {
