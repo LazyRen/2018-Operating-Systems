@@ -16,7 +16,7 @@ Table of contents
       * [구조체](#구조체)
       * [추가된 함수](#추가된-함수)
       * [Scheduler](#scheduler)
-   * [Strude Scheduler](#tests)
+   * [Stride Scheduler](#stride-scheduler)
       * [Exception Handling](#exception-handling)
       * [구조체](#구조체-1)
       * [추가된 함수](#추가된-함수-1)
@@ -26,7 +26,7 @@ Table of contents
 <!--te-->
 
 
-## MLFQ Scheduler
+# MLFQ Scheduler
 
 * 3 Level of Priority (Starting from Highest to Lowest Priority)
 	* time quantum:		1 tick
@@ -36,7 +36,7 @@ Table of contents
 			* time quantum:		4 tick
 * To prevent startvation, priority boosting is performed for every 100 ticks (`boostpriority()` 참조)
 
-#### 구조체
+### 구조체
 
 ```
 // Per-process state
@@ -63,7 +63,7 @@ struct {// proc.c
 이는 proc을 생성하는 `userinit()`, `fork()` 모두 allocproc을 사용하여 ptable에 접근하고<br>
 proc 소멸에 사용되는 `exit()`, `kill()` 함수의 뒷처리는 모두 parent proc의 `wait()`이 관여하기 때문입니다.
 
-#### 추가된 함수
+### 추가된 함수
 
 * **System Call**
 
@@ -71,8 +71,8 @@ proc 소멸에 사용되는 `exit()`, `kill()` 함수의 뒷처리는 모두 par
 	* `int getlev(void)` : 현재 프로세서의 MLFQ scheduler 상의 priority level을 반환한다.<br>
 	*stride scheduling의 영향을 받는 프로세스가 getlev를 호출할시 반환되는 리턴값은 쓰레기 값이다.<br>(Stride로 넘어가기 직전의 priority level)*
 * proc.c<br>
-top()을 제외한 모든 함수는 호출되기전에 ptable.lock을 획득하여야한다.
-	*`void initpush(struct proc* queue[], struct proc *p)`<br>
+top()을 제외한 모든 함수는 호출되기전에 ptable.lock을 획득하여야한다.<br>
+	* `void initpush(struct proc* queue[], struct proc *p)`<br>
 	해당 queue에 proc을 넣고 다음 scheduling시에 우선적으로 실행될 수 있는 우선권을 부여한다.
 	* `void push(struct proc* queue[], struct proc *p)`<br>
 	해당 queue에 proc을 넣는다. 이때의 push는 drop, boost priority에서도 사용되며,<br>next running의 첫번째로 주기에는 기존에 대기하던 proc들에게 불공평하다고 판단되어 initpush와 달리 실행에 있어 우선권을 주지 않는다.<br>이것이 initpush와 push의 유일한 차이점이다.
@@ -85,7 +85,7 @@ top()을 제외한 모든 함수는 호출되기전에 ptable.lock을 획득하�
 	* `void boostpriority(void)`<br>
 	PBOOST로 지정된 tick(default 100)만큼의 tick이 지날시 모든 MLFQ proc을 highest priority queue로 돌려넣는다.<br>이때의 tick 계산은 기본 탑재된 xv6의 tick이 아닌 MLFQ proc들이 사용한 tick들 만을 더해서 계산한다.
 
-#### Scheduler
+### Scheduler
 
 ptable.lock을 획득한 이후
 
@@ -156,17 +156,17 @@ tick은 scheduler내부 외에 **trap.c**에서도 yield로 넘어가지 않을�
 higher queue에서 time allotment에 더 빨리 도달해 동작시간대비 `drop priority()`가 더 빠르게 일어나기 때문입니다.<br>
 이는 yield를 사용하는 프로그램이 scheduler를 속이는(game the scheduler) 상황을 방지하기 위해 1 tick보다 더 적은양을 반복적으로 수행하며 priority를 유지하는 상황을 방지하기 위해 디자인한 결과입니다.
 
-> MLFQ(compute), lev[0]: 5370, lev[1]: 10355, lev[2]: 4276
-> MLFQ(compute), lev[0]: 5800, lev[1]: 11571, lev[2]: 2630
-> MLFQ(compute), lev[0]: 5788, lev[1]: 11615, lev[2]: 2598
-> MLFQ(yield), lev[0]: 3047, lev[1]: 6120, lev[2]: 10834
-> MLFQ(yield), lev[0]: 3059, lev[1]: 6119, lev[2]: 10823
-> MLFQ(yield), lev[0]: 3055, lev[1]: 6127, lev[2]: 10819
+> MLFQ(compute), lev[0]: 5370, lev[1]: 10355, lev[2]: 4276<br>
+> MLFQ(compute), lev[0]: 5800, lev[1]: 11571, lev[2]: 2630<br>
+> MLFQ(compute), lev[0]: 5788, lev[1]: 11615, lev[2]: 2598<br>
+> MLFQ(yield), lev[0]: 3047, lev[1]: 6120, lev[2]: 10834<br>
+> MLFQ(yield), lev[0]: 3059, lev[1]: 6119, lev[2]: 10823<br>
+> MLFQ(yield), lev[0]: 3055, lev[1]: 6127, lev[2]: 10819<br>
 
 또한 어떤 종류의 MLFQ이든 실행하는 프로세스가 증가할수록 levl[0]의 값이 증가하는 것을 확인할 수 있는데<br>
 이또한 자기자신의 프로세스의 실행속도는 동일하지만 다른 MLFQ 프로세스의 실행량이 증가함으로 인해 boostpriority가 더 자주 일어나는 상황이 발생하기 때문입니다.
 
-## Stride Scheduler
+# Stride Scheduler
 
 변경된 xv6의 scheduler는 기본적으로 MLFQ를 바탕으로 동작합니다.<br>
 만약 프로그램이 내부에서 `set_cpu_share()` 함수를 부른 경우, system call을 통해 해당 proc은 ticket값을 배당받고 이후 MLFQ sheduler가 아닌 stride scheduler의 영향을 받습니다.<br>
@@ -174,13 +174,13 @@ MLFQ scheduler 또한 일종의 프로그램으로 취급하여 Stride Scheduler
 MLFQ scheduler의 차례가 되었을시 MLFQ는 하나의 proc을 실행할 수 있으며 이때 MLFQ의 pass는 stride * p->timequantum 만큼 증가합니다.<br>
 이는 stride scheduler의 영향 아래 있는 proc은 항시 1 tick이후 time interrupt로 yield하지만 MLFQ의 proc은 여전히 해당 priority의 time quantum을 보장받기 때문입니다.
 
-#### Exception Handling
+### Exception Handling
 
 * MLFQ Scheduler는 최소 20%의 지분을 보장받습니다. 즉, 다수의(혹은 단일의) 외부 프로그램이 80%를 초과하는 cpu share를 할당받으려 할시 `set_cpu_share()`는 -1을 리턴합니다.
 * 하나의 프로그램은 `set_cpu_share()` 함수를 한 번 이상 호출할 수 있습니다.<br>이때 해당 프로그램의 cpu share은 마지막 함수 호출시의 %로 할당되며, 해당 호출로 인해 MLFQ가 20%의 지분을 보장받지 못할시 cpu share는 이전 호출시의 cpu share에서 변하지 않으며 -1을 리턴합니다.
 * cpu share를 할당받은 프로그램은 이후 가장 먼저 실행됨을 minpass를 통해 보장받습니다.
 
-#### 구조체
+### 구조체
 
 ```
 struct proc {
@@ -205,13 +205,13 @@ xv6 시작시 mlfq 구조체는 MAXTICKET(proc.c default 1000000)을 할당받�
 만약 proc의 ticket이 0이라면, 이는 해당 proc이 MLFQ scheduling을 바탕으로 동작한다는 것을 의미합니다.<br>
 또한 stride scheduling을 위한 minpass를 ptable이 보유하고 있으며 새로운 proc이 `set_cpu_share()`를 호출할시 해단 minpass를 pass변수에 할당받아 다음 scheduling에서 실행됨을 보장받습니다.
 
-#### 추가된 함수
+### 추가된 함수
 
 * **System Call**
 	* `int set_cpu_share(int percentage)` : 파라미터만큼의 cpu share를 할당받습니다.<br>
 	이후 proc은 Stride Scheduler의 영향을 받습니다. 리턴값은 성공시 cpu share, 실패시 -1을 반환합니다.
 
-#### Scheduler
+### Scheduler
 
 Stride Scheduler는 `set_cpu_share()`이외에 함수가 추가되지 않습니다.<br>
 대신, 기존 scheduler 함수가 stride scheduling과 MLFQ scheduling을 모두 다뤄야 하는 만큼 그 내부가 복잡해진 형태를 띄고 있습니다.<br>
@@ -327,6 +327,6 @@ else {
 만약 minpass를 가진 proc이 MLFQ가 아니라면 해당 proc을 실행시킵니다.<br>
 이미 minpass를 확인하는 과정에서 변수 p가 해당 proc을 가르키고 있으므로 기존 xv6의 scheduler와 비슷하게 동작하며, pass 값을 증가시키는 부분이 추가되었습니다.
 
-## Results & Tests
+# Results & Tests
 
-스크린샷이 많은 관계로 result.md 파일을 확인해주시기 바랍니다.
+스크린샷이 많은 관계로 [result.md](./result.md) 파일을 확인해주시기 바랍니다.
