@@ -18,17 +18,22 @@ char *child_argv[CNT_CHILD][3] = {
   {NAME_CHILD_MLFQ, "0", 0},
   {NAME_CHILD_MLFQ, "0", 0},
   {NAME_CHILD_MLFQ, "0", 0},
-  // Process scheduled by Stride scheduler, use 10% of CPU resources
+  {NAME_CHILD_MLFQ, "1", 0},
+  {NAME_CHILD_MLFQ, "1", 0},
+  {NAME_CHILD_MLFQ, "1", 0},
   // {NAME_CHILD_STRIDE, "10", 0},
-  // Process scheduled by Stride scheduler, use 40% of CPU resources
   // {NAME_CHILD_STRIDE, "40", 0},
   // {NAME_CHILD_STRIDE, "30", 0},
-  {NAME_CHILD_MLFQ, "1", 0},
-  {NAME_CHILD_MLFQ, "1", 0},
-  {NAME_CHILD_MLFQ, "1", 0},
   // {NAME_CHILD_STRIDE, "1", 0},
-  // Process scheduled by MLFQ scheduler, does not yield() itself
-  // Process scheduled by MLFQ scheduler, frequently yield()
+  // {NAME_CHILD_STRIDE, "2", 0},
+  // {NAME_CHILD_STRIDE, "3", 0},
+  // {NAME_CHILD_STRIDE, "4", 0},
+  // {NAME_CHILD_STRIDE, "5", 0},
+  // {NAME_CHILD_STRIDE, "6", 0},
+  // {NAME_CHILD_STRIDE, "7", 0},
+  // {NAME_CHILD_STRIDE, "8", 0},
+  // {NAME_CHILD_STRIDE, "9", 0},
+  // {NAME_CHILD_STRIDE, "10", 0},
 };
 
 int

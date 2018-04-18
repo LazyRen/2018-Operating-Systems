@@ -206,14 +206,14 @@ set_cpu_share(int percentage)
   if (p->tickets != 0) {
     int diff = tickets - p->tickets;
     if (ptable.mlfq.tickets - diff < MAXTICKET/10 * 2) {
-      cprintf("MLFQ must have at least of 20%% tickets");
+      cprintf("MLFQ must have at least of 20%% tickets\n");
       release(&ptable.lock);
       return -1;
     }
   }
   else {
     if (ptable.mlfq.tickets - tickets < MAXTICKET/10 * 2) {
-      cprintf("MLFQ must have at least of 20%% tickets");
+      cprintf("MLFQ must have at least of 20%% tickets\n");
       release(&ptable.lock);
       return -1;
     }

@@ -25,7 +25,6 @@ Table of contents
 
 <!--te-->
 
-
 # MLFQ Scheduler
 
 * 3 Level of Priority (Starting from Highest to Lowest Priority)

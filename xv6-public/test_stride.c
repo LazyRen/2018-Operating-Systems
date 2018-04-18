@@ -29,7 +29,7 @@ main(int argc, char *argv[])
 
   // Register this process to the Stride scheduler
   if (set_cpu_share(cpu_share) < 0) {
-    printf(1, "cannot set cpu share\n");
+    printf(1, "cannot set %d%% cpu share\n", cpu_share);
     exit();
   }
 
