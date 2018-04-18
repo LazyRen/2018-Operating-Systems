@@ -107,13 +107,14 @@ trap(struct trapframe *tf)
     tf->trapno == T_IRQ0+IRQ_TIMER) {
     if (myproc()->tickets != 0) //In case of stride scheduling, yield every single time interrupt(1tick)
       yield();
-    if (myproc()->ticks+1 >= myproc()->timequantum) {
+    if ((myproc()->curticks+1) % myproc()->timequantum == 0) {
       //Because yield will lead into scheduler() and it will raise tick from there,
-      //check for current tick + 1.
+      //check for current curtick + 1.
       yield();
     }
     else {//if time quantum is not reached, add 1 tick to both global mlfq tick and current proc tick.
       myproc()->ticks++;
+      myproc()->curticks++;
       runningticks++;
     }
   }

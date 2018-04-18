@@ -49,7 +49,8 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  int ticks;                   // Runtime of program before yield
+  int ticks;                   // Runtime of program before change of priority
+  int curticks;                // Runtime of program before yield
   int priority;                // Current position of queue(if MLFQ)
   int timequantum;             // Maximum time program can run without timer interrupt
   int timeallotment;           // Priority will be decreased if reached.

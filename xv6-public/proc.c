@@ -125,6 +125,7 @@ droppriority(struct proc* p)
   switch(p->priority) {
     case 0:
       p->ticks = 0;
+      p->curticks = 0;
       p->priority = 1;
       p->timequantum = 2;
       p->timeallotment = 10;
@@ -157,6 +158,7 @@ boostpriority(void)
         continue;
       p = ptable.mlfq.queue[i][*rr];
       p->ticks = 0;
+      p->curticks = 0;
       p->priority = 0;
       p->timequantum = 1;
       p->timeallotment = 5;
@@ -309,6 +311,7 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->ticks = 0;
+  p->curticks = 0;
   p->priority = 0;
   p->timequantum = 1;
   p->timeallotment = 5;
@@ -616,10 +619,11 @@ scheduler(void)
           swtch(&(c->scheduler), p->context);
           done = 1;
           p->ticks++;
+          p->curticks++;
           runningticks++;
           //Because MLFQ runs continuously, pass is increased by stride * quantum.
           if (ptable.mlfq.tickets != MAXTICKET)
-            ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets) * (p->ticks - 1);
+            ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets) * (p->curticks - 1);
           // cprintf("p->tickets: %d\n", p->tickets);
           // If more than 100 ticks after previous boost is detected.
           // only calculates ticks occured during execution of MLFQ scheduling.
@@ -633,6 +637,7 @@ scheduler(void)
             droppriority(p);
           if (p->tickets != 0)// set_cpu_share has been called for current proc.
             monopoly = 0;
+          p->curticks = 0;
           switchkvm();
 
           c->proc = 0;

@@ -13,14 +13,14 @@ Table of contents
 
 <!--ts-->
    * [MLFQ Scheduler](#mlfq-scheduler)
-      * [구조체](#구조체)
-      * [추가된 함수](#추가된-함수)
-      * [Scheduler](#scheduler)
+	  * [구조체](#구조체)
+	  * [추가된 함수](#추가된-함수)
+	  * [Scheduler](#scheduler)
    * [Stride Scheduler](#stride-scheduler)
-      * [Exception Handling](#exception-handling)
-      * [구조체](#구조체-1)
-      * [추가된 함수](#추가된-함수-1)
-      * [Scheduler](#scheduler-1)
+	  * [Exception Handling](#exception-handling)
+	  * [구조체](#구조체-1)
+	  * [추가된 함수](#추가된-함수-1)
+	  * [Scheduler](#scheduler-1)
    * [Results & Tests](#results-tests)
 
 <!--te-->
@@ -41,7 +41,8 @@ Table of contents
 // Per-process state
 struct proc {// proc.h
 	...
-	int ticks;                   // Runtime of program before yield
+	int ticks;                   // Runtime of program before change of priority
+	int curticks;                // Runtime of program before yield
 	int priority;                // Current position of queue(if MLFQ)
 	int timequantum;             // Maximum time program can run without timer interrupt
 	int timeallotment;           // Priority will be decreased if reached.
@@ -101,6 +102,7 @@ for (;;) {
 		p->state = RUNNING;
 		swtch(&(c->scheduler), p->context);
 		p->ticks++;
+		p->curticks++;
 		runningticks++;
 		// If more than 100 ticks after previous boost is detected.
 		// only calculates ticks occured during execution of MLFQ scheduling.
@@ -112,6 +114,7 @@ for (;;) {
 		}
 		if (p->priority != 2 && p->ticks >= p->timeallotment)
 			droppriority(p);
+		p->curticks = 0;
 		switchkvm();
 		c->proc = 0;
 		p = top(ptable.mlfq.queue[i], i);
@@ -126,22 +129,25 @@ for (;;) {
 higher priority queue에 proc이 존재할시 lower priority queue의 proc은 실행되지 않으며 매 100 tick마다(+오차 최대 4tick. 마지막 실행 proc의 time quantum을 보장해주기 때문에)<br>
 boost priority가 일어남을 확인 할 수 있습니다. test_mlfq를 통해 여러개의 proc을 돌릴수록 proc이 queue[0]에 있는 시간이 더 길어짐을 확인 할 수 있는데, <br>
 이는 다른 proc의 tick에 의해서도 boostpriority가 일어나기 때문으로, 지극히 정상적인 반응입니다.<br>
-mlfq proc의 갯수와 상관없이 queue[0]과 queue[1]의 비율은 1:2를 계속 만족함을 확인함으로서 MLFQ의 정상작동을 확인할 수 있습니다. *(결과값은 result.md 참조)*<br>
+mlfq proc의 갯수와 상관없이 queue[0]과 queue[1]의 비율은 1:2를 계속 만족함을 확인함으로서 MLFQ의 정상작동을 확인할 수 있습니다. *(결과값은 [result.md](./result.md) 참조)*<br>
 
 ```
 if(myproc() && myproc()->state == RUNNING &&
 	tf->trapno == T_IRQ0+IRQ_TIMER) {
-	if (myproc()->ticks+1 >= myproc()->timequantum) {
+	if ((myproc()->curticks+1) % myproc()->timequantum == 0) {
 		//Because yield will lead into scheduler() and it will raise tick from there,
 		//check for current tick + 1.
 		yield();
 	}
 	else {//if time quantum is not reached, add 1 tick to both global mlfq tick and current proc tick.
 		myproc()->ticks++;
+		myproc()->curticks++;
 		runningticks++;
 	}
 ```
 tick은 scheduler내부 외에 **trap.c**에서도 yield로 넘어가지 않을시 tick을 카운트해줍니다.<br>
+curticks은 이전 RUNNING에서 프로그램이 yield()를 호출하였을 경우 모듈로 연산으로는 이번 RUNNING의 정확한 tick count가 불가능하여 추가되었습니다<br>
+curticks의 경우 일반 ticks과 동일하게 증가하지만 sched()를 통해 shceduler로 돌아왔을 경우 항시 0으로 초기화되어 다음 RUNNING에서의 clean count를 보장합니다.<br>
 만약 yield로 넘어갈 경우 scheduler의 swtch 다음명령부터 실행하기 때문에 scheduler내부의 tick count가 대신 계산해줍니다.
 
 > STRIDE(30%), cnt: 1320<br>
