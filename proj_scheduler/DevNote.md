@@ -190,13 +190,13 @@ MLFQ scheduler의 차례가 되었을시 MLFQ는 하나의 proc을 실행할 수
 ```
 struct proc {
 	...
-	int tickets;                 // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
+	int percentage;                 // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
 	int pass;                    // Counter for stride sceduling
 };
 
 struct mlfq {
 	...
-	int tickets;                  // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
+	int percentage;                  // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
 	int pass;                     // Counter for stride sceduling
 };
 
@@ -205,9 +205,9 @@ struct {
 	int minpass;              //minimum pass value of all proc.
 } ptable;
 ```
-모든 proc과 mlfq 구조체에 pass와 ticket 변수를 추가합니다.<br>
-xv6 시작시 mlfq 구조체는 MAXTICKET(proc.c default 1000000)을 할당받으며 이후 다른 proc이 cpu share를 할당받을시 mlfq 구조체에서 ticket을 가져가고 종료시에 되돌려 받는 구조입니다.<br>
-만약 proc의 ticket이 0이라면, 이는 해당 proc이 MLFQ scheduling을 바탕으로 동작한다는 것을 의미합니다.<br>
+모든 proc과 mlfq 구조체에 pass와 percentage 변수를 추가합니다.<br>
+xv6 시작시 mlfq 구조체는 100을 할당받으며 이후 다른 proc이 cpu share를 할당받을시 mlfq 구조체에서 percentage을 가져가고 종료시에 되돌려 받는 구조입니다.<br>
+만약 proc의 percentage가 0이라면, 이는 해당 proc이 MLFQ scheduling을 바탕으로 동작한다는 것을 의미합니다.<br>
 또한 stride scheduling을 위한 minpass를 ptable이 보유하고 있으며 새로운 proc이 `set_cpu_share()`를 호출할시 해단 minpass를 pass변수에 할당받아 다음 scheduling에서 실행됨을 보장받습니다.
 
 ### 추가된 함수
@@ -272,10 +272,11 @@ if (minpass == ptable.mlfq.pass) {
 			swtch(&(c->scheduler), p->context);
 			done = 1;
 			p->ticks++;
+			p->curticks++;
 			runningticks++;
 			//Because MLFQ runs continuously, pass is increased by stride * quantum.
 			if (ptable.mlfq.tickets != MAXTICKET)
-				ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets) * (p->ticks - 1);
+				ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets) * (p->curticks - 1);
 			// cprintf("p->tickets: %d\n", p->tickets);
 			// If more than 100 ticks after previous boost is detected.
 			// only calculates ticks occured during execution of MLFQ scheduling.
@@ -289,6 +290,7 @@ if (minpass == ptable.mlfq.pass) {
 				droppriority(p);
 			if (p->tickets != 0)// set_cpu_share has been called for current proc.
 				monopoly = 0;
+			p->curticks = 0;
 			switchkvm();
 
 			c->proc = 0;

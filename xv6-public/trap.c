@@ -105,7 +105,7 @@ trap(struct trapframe *tf)
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
     tf->trapno == T_IRQ0+IRQ_TIMER) {
-    if (myproc()->tickets != 0) //In case of stride scheduling, yield every single time interrupt(1tick)
+    if (myproc()->percentage != 0) //In case of stride scheduling, yield every single time interrupt(1tick)
       yield();
     if ((myproc()->curticks+1) % myproc()->timequantum == 0) {
       //Because yield will lead into scheduler() and it will raise tick from there,

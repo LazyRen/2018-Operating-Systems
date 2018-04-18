@@ -54,7 +54,7 @@ struct proc {
   int priority;                // Current position of queue(if MLFQ)
   int timequantum;             // Maximum time program can run without timer interrupt
   int timeallotment;           // Priority will be decreased if reached.
-  int tickets;                 // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
+  int percentage;                 // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
   int pass;                    // Counter for stride sceduling
 };
 
@@ -67,6 +67,6 @@ struct proc {
 struct mlfq {
   struct proc *queue[3][NPROC]; // 0 is the highest priority
   int index[3];                 // Indicate start position for the round robin scheduling.
-  int tickets;                  // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
+  int percentage;                  // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
   int pass;                     // Counter for stride sceduling
 };

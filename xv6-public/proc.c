@@ -9,7 +9,7 @@
 
 #define NULL 0
 #define PBOOST 100
-#define MAXTICKET 1000000
+#define MAXTICKET 10000000
 
 struct {
   struct spinlock lock;
@@ -81,7 +81,7 @@ top(struct proc* queue[], int priority)
       continue;
     if (queue[*rr]->state != RUNNABLE)
       continue;
-    if (queue[*rr]->tickets != 0)
+    if (queue[*rr]->percentage != 0)
       continue;
     ret = queue[*rr];
     break;
@@ -201,28 +201,27 @@ int
 set_cpu_share(int percentage)
 {
   struct proc* p = myproc();
-  int tickets = (int)(MAXTICKET * percentage/100.0);
   acquire(&ptable.lock);
 
   // set_cpu_share already called before
-  if (p->tickets != 0) {
-    int diff = tickets - p->tickets;
-    if (ptable.mlfq.tickets - diff < MAXTICKET/10 * 2) {
+  if (p->percentage != 0) {
+    int diff = percentage - p->percentage;
+    if (ptable.mlfq.percentage - diff < 20) {
       cprintf("MLFQ must have at least of 20%% tickets\n");
       release(&ptable.lock);
       return -1;
     }
   }
   else {
-    if (ptable.mlfq.tickets - tickets < MAXTICKET/10 * 2) {
+    if (ptable.mlfq.percentage - percentage < 20) {
       cprintf("MLFQ must have at least of 20%% tickets\n");
       release(&ptable.lock);
       return -1;
     }
     pop(p);
-    p->tickets = tickets;
+    p->percentage = percentage;
     p->pass = ptable.minpass;
-    ptable.mlfq.tickets -= tickets;
+    ptable.mlfq.percentage -= percentage;
     release(&ptable.lock);
   }
 
@@ -315,7 +314,7 @@ found:
   p->priority = 0;
   p->timequantum = 1;
   p->timeallotment = 5;
-  p->tickets = 0;
+  p->percentage = 0;
   p->pass = ptable.minpass;
 
   release(&ptable.lock);
@@ -379,6 +378,7 @@ userinit(void)
 
   p->state = RUNNABLE;
   initpush(ptable.mlfq.queue[0], p);
+  p->pass = ptable.minpass;
 
   release(&ptable.lock);
 }
@@ -446,6 +446,7 @@ fork(void)
 
   np->state = RUNNABLE;
   initpush(ptable.mlfq.queue[0], np);
+  np->pass = ptable.minpass;
 
   release(&ptable.lock);
 
@@ -526,10 +527,16 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
-        if (p->tickets == 0)
+        if (p->percentage == 0)
           pop(p);
-        ptable.mlfq.tickets += p->tickets;
-        p->tickets = 0;
+        ptable.mlfq.percentage += p->percentage;
+        p->ticks = 0;
+        p->curticks = 0;
+        p->priority  = 0;
+        p->timequantum = 2;
+        p->timeallotment = 5;
+        p->percentage = 0;
+        p->pass = 0;
         release(&ptable.lock);
         return pid;
       }
@@ -566,7 +573,7 @@ scheduler(void)
 
   //set MLFQ tickets to MAXTICKET. 100% cpu share.
   acquire(&ptable.lock);
-  ptable.mlfq.tickets = MAXTICKET;
+  ptable.mlfq.percentage = 100;
   release(&ptable.lock);
 
   for(;;){
@@ -580,9 +587,9 @@ scheduler(void)
 
     //mlfq.tickets == MAXTICKET means there is no stride proc for now.
     //thus we can skip comparing part. Else look for the proc with min. pass.
-    if (ptable.mlfq.tickets != MAXTICKET){
+    if (ptable.mlfq.percentage != 100){
       for (int i = 0; i < NPROC; i++) {
-        if (ptable.proc[i].tickets == 0 || ptable.proc[i].state != RUNNABLE)
+        if (ptable.proc[i].percentage == 0 || ptable.proc[i].state != RUNNABLE)
           continue;
         if (minpass > ptable.proc[i].pass) {
           p = &ptable.proc[i];
@@ -601,8 +608,8 @@ scheduler(void)
       // finding min. pass.
       int done = 0, monopoly = 1;
       // Increment stride pass for MLFQ only if there is other stride proc running.
-      if (ptable.mlfq.tickets != MAXTICKET) {
-        ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets);
+      if (ptable.mlfq.percentage != 100) {
+        ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.percentage);
         monopoly = 0;
       }
       int i = 0;
@@ -622,8 +629,8 @@ scheduler(void)
           p->curticks++;
           runningticks++;
           //Because MLFQ runs continuously, pass is increased by stride * quantum.
-          if (ptable.mlfq.tickets != MAXTICKET)
-            ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.tickets) * (p->curticks - 1);
+          if (ptable.mlfq.percentage != 100)
+            ptable.mlfq.pass += (int)(MAXTICKET/ptable.mlfq.percentage) * (p->curticks - 1);
           // cprintf("p->tickets: %d\n", p->tickets);
           // If more than 100 ticks after previous boost is detected.
           // only calculates ticks occured during execution of MLFQ scheduling.
@@ -635,7 +642,7 @@ scheduler(void)
           }
           if (p->priority != 2 && p->ticks >= p->timeallotment)
             droppriority(p);
-          if (p->tickets != 0)// set_cpu_share has been called for current proc.
+          if (p->percentage != 0)// set_cpu_share has been called for current proc.
             monopoly = 0;
           p->curticks = 0;
           switchkvm();
@@ -662,7 +669,7 @@ scheduler(void)
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-      p->pass += (int)(MAXTICKET/p->tickets);
+      p->pass += (int)(MAXTICKET/p->percentage);
       // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
       switchkvm();
 
