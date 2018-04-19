@@ -50,6 +50,9 @@ MLFQ yiel, compute와 Stride 모두 3개씩 실행시킨 결과입니다.<br>
 모두 각각을 돌렸을때와 마찬가지로 이상없이 돌아갑니다.<br>
 각각 10개 이상의 proc을 돌려도 이론상으로 / 결과값으로 이상이 없지만 xv6의 printf의 한계상 출력에 lock을 잡지않아 printf 결과값이 corrupt되어 정상적인 결과값 확보가 불가능합니다.<br>
 
+![ScreenShot11](./assets/scheduler-11.png)<br>
+stride 10개, MLFQ yield, compute 각각 5개 총 20개의 proc을 한꺼번에 돌린 결과입니다.<br>
+
 # Results
 
 ## Test_MLFQ

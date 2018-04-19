@@ -7,7 +7,7 @@
 #include "user.h"
 
 // Number of child programs
-#define CNT_CHILD           9
+#define CNT_CHILD           20
 
 // Name of child test program that tests Stride scheduler
 #define NAME_CHILD_STRIDE   "test_stride"
@@ -21,20 +21,23 @@ char *child_argv[CNT_CHILD][3] = {
   {NAME_CHILD_MLFQ, "1", 0},
   {NAME_CHILD_MLFQ, "1", 0},
   {NAME_CHILD_MLFQ, "0", 0},
-  // {NAME_CHILD_STRIDE, "1", 0},
-  {NAME_CHILD_STRIDE, "10", 0},
-  {NAME_CHILD_STRIDE, "30", 0},
-  {NAME_CHILD_STRIDE, "40", 0},
-  // {NAME_CHILD_STRIDE, "1", 0},
-  // {NAME_CHILD_STRIDE, "2", 0},
-  // {NAME_CHILD_STRIDE, "3", 0},
-  // {NAME_CHILD_STRIDE, "4", 0},
-  // {NAME_CHILD_STRIDE, "5", 0},
-  // {NAME_CHILD_STRIDE, "6", 0},
-  // {NAME_CHILD_STRIDE, "7", 0},
-  // {NAME_CHILD_STRIDE, "8", 0},
-  // {NAME_CHILD_STRIDE, "9", 0},
+  {NAME_CHILD_MLFQ, "1", 0},
+  {NAME_CHILD_MLFQ, "0", 0},
+  {NAME_CHILD_MLFQ, "1", 0},
+  {NAME_CHILD_MLFQ, "0", 0},
   // {NAME_CHILD_STRIDE, "10", 0},
+  // {NAME_CHILD_STRIDE, "30", 0},
+  // {NAME_CHILD_STRIDE, "40", 0},
+  {NAME_CHILD_STRIDE, "1", 0},
+  {NAME_CHILD_STRIDE, "2", 0},
+  {NAME_CHILD_STRIDE, "3", 0},
+  {NAME_CHILD_STRIDE, "4", 0},
+  {NAME_CHILD_STRIDE, "5", 0},
+  {NAME_CHILD_STRIDE, "6", 0},
+  {NAME_CHILD_STRIDE, "7", 0},
+  {NAME_CHILD_STRIDE, "8", 0},
+  {NAME_CHILD_STRIDE, "9", 0},
+  {NAME_CHILD_STRIDE, "10", 0},
 };
 
 int

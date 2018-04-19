@@ -542,7 +542,7 @@ wait(void)
         p->ticks = 0;
         p->curticks = 0;
         p->priority  = 0;
-        p->timequantum = 2;
+        p->timequantum = 1;
         p->timeallotment = 5;
         p->percentage = 0;
         p->pass = 0;

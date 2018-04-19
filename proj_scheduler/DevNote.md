@@ -5,13 +5,14 @@
 ## 사전정보
 
 기존 Round Robin 정책을 사용하는 xv6의 Scheduler를 MLFQ를 기반으로 하는 Scheduler로 업데이트하고, 이후 CPU SHARE 설정이 가능한 Stride Scheduler 까지 함께 적용시킵니다.<br>
-모든 프로세서는 기본적으로 MLFQ Scheduling을 기반으로 동작하되, 프로그램 내부에서 set_cpu_share 함수를 실행시킬 경우 Stride Scheduler의 영향을 받습니다.<br>
+모든 프로세서는 기본적으로 MLFQ Scheduling을 기반으로 동작하되, 프로그램 내부에서 `set_cpu_share()` 함수를 실행시킬 경우 Stride Scheduler의 영향을 받습니다.<br>
 모든 변경사항은 proc.h, proc.c에 위치하며 tick increment를 위한 trap.c에서의 변경사항을 제외한 나머지 변경사항은 모두 올바른 function call을 위한 변경사항입니다.
 
 Table of Contents
 =================
 
 <!--ts-->
+   * [Blueprint](#blueprint)
    * [MLFQ Scheduler](#mlfq-scheduler)
 	  * [구조체](#구조체)
 	  * [추가된 함수](#추가된-함수)
@@ -24,6 +25,10 @@ Table of Contents
    * [Results & Tests](#results-tests)
 
 <!--te-->
+
+# Blueprint
+
+![Blueprint](./assets/blueprint.png)<br>
 
 # MLFQ Scheduler
 
