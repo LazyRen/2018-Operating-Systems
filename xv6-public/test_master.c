@@ -21,7 +21,7 @@ char *child_argv[CNT_CHILD][3] = {
   {NAME_CHILD_MLFQ, "1", 0},
   {NAME_CHILD_MLFQ, "1", 0},
   {NAME_CHILD_MLFQ, "0", 0},
-  {NAME_CHILD_STRIDE, "1", 0},
+  // {NAME_CHILD_STRIDE, "1", 0},
   {NAME_CHILD_STRIDE, "10", 0},
   {NAME_CHILD_STRIDE, "30", 0},
   {NAME_CHILD_STRIDE, "40", 0},

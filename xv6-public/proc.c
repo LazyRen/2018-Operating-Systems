@@ -213,7 +213,7 @@ set_cpu_share(int percentage)
     }
     p->percentage += diff;
     ptable.mlfq.percentage -= diff;
-    if (percentage == 0)
+    if (p->percentage == 0)
       initpush(ptable.mlfq.queue[0], p);
     release(&ptable.lock);
   }
