@@ -178,7 +178,7 @@ higher queue에서 time allotment에 더 빨리 도달해 동작시간대비 `dr
 MLFQ scheduler 또한 일종의 프로그램으로 취급하여 Stride Scheduler의 영향 아래에 있으며 MLFQ는 최소 20%의 cpu share를 보장받습니다.<br>
 MLFQ scheduler의 차례가 되었을시 MLFQ는 하나의 proc을 실행할 수 있으며 이때 MLFQ의 pass는 stride * p->timequantum 만큼 증가합니다.<br>
 이는 stride scheduler의 영향 아래 있는 proc은 항시 1 tick이후 time interrupt로 yield하지만 MLFQ의 proc은 여전히 해당 priority의 time quantum을 보장받기 때문입니다.<br>
-`set_cpu_share()`의 중복 사용도 허용되며 자세한 내용은 Exception Handling](#exception-handling)을 확인해 주시기 바랍니다.
+`set_cpu_share()`의 중복 사용도 허용되며 자세한 내용은 [Exception Handling](#exception-handling)을 확인해 주시기 바랍니다.
 
 ### Exception Handling
 
