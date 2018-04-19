@@ -1,7 +1,4 @@
 18.4.12
-https://www.youtube.com/watch?v=DZ0-GMtOtEc
-https://github.com/shreyakamath2311/Xv6-MLFQ-Scheduler
-https://github.com/marf/xv6-scheduling
 
 1. 	Create int priority, ticks, timequantum, timeallotment in struct proc from proc.h
 2. 	Allocproc will set priority to 0 (proc.c allocproc() function), ticks to 0

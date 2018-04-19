@@ -8,7 +8,7 @@
 모든 프로세서는 기본적으로 MLFQ Scheduling을 기반으로 동작하되, 프로그램 내부에서 set_cpu_share 함수를 실행시킬 경우 Stride Scheduler의 영향을 받습니다.<br>
 모든 변경사항은 proc.h, proc.c에 위치하며 tick increment를 위한 trap.c에서의 변경사항을 제외한 나머지 변경사항은 모두 올바른 function call을 위한 변경사항입니다.
 
-Table of contents
+Table of Contents
 =================
 
 <!--ts-->
@@ -107,7 +107,7 @@ for (;;) {
 		// If more than 100 ticks after previous boost is detected.
 		// only calculates ticks occured during execution of MLFQ scheduling.
 		if (runningticks >= nextboost) {
-			nextboost = runningticks + 100;
+			nextboost = runningticks + PBOOST;
 			boostpriority();
 			boosted = 1;
 			break;
@@ -158,7 +158,7 @@ curticks의 경우 일반 ticks과 동일하게 증가하지만 sched()를 통�
 
 만약 MLFQ(compute) 와 MLFQ(yield)를 같이 실행할 경우 compute의 queue[0]의 값이 더 큰 것을 확인 할 수 있는데<br>
 이는 yield를 프로그램 내부에서 실행하는 MLFQ(yield)의 경우 1tick(10ms)가 되기전에 tick이 증가되어 실제 실행시간 대비 틱 증가속도가 더 빨라<br>
-higher queue에서 time allotment에 더 빨리 도달해 동작시간대비 `drop priority()`가 더 빠르게 일어나기 때문입니다.<br>
+higher queue에서 time allotment에 더 빨리 도달해 동작시간대비 `droppriority()`가 더 빠르게 일어나기 때문입니다.<br>
 이는 yield를 사용하는 프로그램이 scheduler를 속이는(game the scheduler) 상황을 방지하기 위해 1 tick보다 더 적은양을 반복적으로 수행하며 priority를 유지하는 상황을 방지하기 위해 디자인한 결과입니다.
 
 > MLFQ(compute), lev[0]: 5370, lev[1]: 10355, lev[2]: 4276<br>
@@ -177,13 +177,15 @@ higher queue에서 time allotment에 더 빨리 도달해 동작시간대비 `dr
 만약 프로그램이 내부에서 `set_cpu_share()` 함수를 부른 경우, system call을 통해 해당 proc은 ticket값을 배당받고 이후 MLFQ sheduler가 아닌 stride scheduler의 영향을 받습니다.<br>
 MLFQ scheduler 또한 일종의 프로그램으로 취급하여 Stride Scheduler의 영향 아래에 있으며 MLFQ는 최소 20%의 cpu share를 보장받습니다.<br>
 MLFQ scheduler의 차례가 되었을시 MLFQ는 하나의 proc을 실행할 수 있으며 이때 MLFQ의 pass는 stride * p->timequantum 만큼 증가합니다.<br>
-이는 stride scheduler의 영향 아래 있는 proc은 항시 1 tick이후 time interrupt로 yield하지만 MLFQ의 proc은 여전히 해당 priority의 time quantum을 보장받기 때문입니다.
+이는 stride scheduler의 영향 아래 있는 proc은 항시 1 tick이후 time interrupt로 yield하지만 MLFQ의 proc은 여전히 해당 priority의 time quantum을 보장받기 때문입니다.<br>
+`set_cpu_share()`의 중복 사용도 허용되며 자세한 내용은 Exception Handling](#exception-handling)을 확인해 주시기 바랍니다.
 
 ### Exception Handling
 
 * MLFQ Scheduler는 최소 20%의 지분을 보장받습니다. 즉, 다수의(혹은 단일의) 외부 프로그램이 80%를 초과하는 cpu share를 할당받으려 할시 `set_cpu_share()`는 -1을 리턴합니다.
 * 하나의 프로그램은 `set_cpu_share()` 함수를 한 번 이상 호출할 수 있습니다.<br>이때 해당 프로그램의 cpu share은 마지막 함수 호출시의 %로 할당되며, 해당 호출로 인해 MLFQ가 20%의 지분을 보장받지 못할시 cpu share는 이전 호출시의 cpu share에서 변하지 않으며 -1을 리턴합니다.
 * cpu share를 할당받은 프로그램은 이후 가장 먼저 실행됨을 minpass를 통해 보장받습니다.
+* `set_cpu_share()`를 처음 콜할때 percentage = 0을 입력할경우 -1을 리턴합니다.<br> **하지만 한 proc의 2번째 콜에서 0을 받을경우 stride scheduler에서 빠져나와 MLFQ scheduler로 돌아갑니다.**<br>
 
 ### 구조체
 
@@ -208,13 +210,14 @@ struct {
 모든 proc과 mlfq 구조체에 pass와 percentage 변수를 추가합니다.<br>
 xv6 시작시 mlfq 구조체는 100을 할당받으며 이후 다른 proc이 cpu share를 할당받을시 mlfq 구조체에서 percentage을 가져가고 종료시에 되돌려 받는 구조입니다.<br>
 만약 proc의 percentage가 0이라면, 이는 해당 proc이 MLFQ scheduling을 바탕으로 동작한다는 것을 의미합니다.<br>
-또한 stride scheduling을 위한 minpass를 ptable이 보유하고 있으며 새로운 proc이 `set_cpu_share()`를 호출할시 해단 minpass를 pass변수에 할당받아 다음 scheduling에서 실행됨을 보장받습니다.
+또한 stride scheduling을 위한 minpass를 ptable이 보유하고 있으며 새로운 proc이 `set_cpu_share()`를 호출할시 해당 minpass를 pass변수에 할당받아 다음 scheduling에서 실행됨을 보장받습니다.
 
 ### 추가된 함수
 
 * **System Call**
 	* `int set_cpu_share(int percentage)` : 파라미터만큼의 cpu share를 할당받습니다.<br>
-	이후 proc은 Stride Scheduler의 영향을 받습니다. 리턴값은 성공시 cpu share, 실패시 -1을 반환합니다.
+	이후 proc은 Stride Scheduler의 영향을 받습니다. 리턴값은 성공시 cpu share, 실패시 -1을 반환합니다.<br>
+	만약 2번째 콜의 인자가 0일시 stride scheduling에서 빠져나와 다시 MLFQ scheduling으로 돌아갑니다.<br>
 
 ### Scheduler
 

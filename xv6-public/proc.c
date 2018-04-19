@@ -211,11 +211,20 @@ set_cpu_share(int percentage)
       release(&ptable.lock);
       return -1;
     }
+    p->percentage += diff;
+    ptable.mlfq.percentage -= diff;
+    if (percentage == 0)
+      initpush(ptable.mlfq.queue[0], p);
+    release(&ptable.lock);
   }
   else {
     if (ptable.mlfq.percentage - percentage < 20) {
       cprintf("MLFQ must have at least of 20%% tickets\n");
       release(&ptable.lock);
+      return -1;
+    }
+    if (percentage == 0) {
+      cprintf("0%% share is not accepted\n");
       return -1;
     }
     pop(p);
@@ -566,7 +575,7 @@ scheduler(void)
 {
   struct proc *p = NULL;
   struct cpu *c = mycpu();
-  uint nextboost = 100;
+  uint nextboost = PBOOST;
 
   runningticks = 0;
   c->proc = 0;
@@ -635,7 +644,7 @@ scheduler(void)
           // If more than 100 ticks after previous boost is detected.
           // only calculates ticks occured during execution of MLFQ scheduling.
           if (runningticks >= nextboost) {
-            nextboost = runningticks + 100;
+            nextboost = runningticks + PBOOST;
             boostpriority();
             boosted = 1;
             break;

@@ -7,7 +7,7 @@
 #include "user.h"
 
 // Number of child programs
-#define CNT_CHILD           2
+#define CNT_CHILD           9
 
 // Name of child test program that tests Stride scheduler
 #define NAME_CHILD_STRIDE   "test_stride"
@@ -15,16 +15,16 @@
 #define NAME_CHILD_MLFQ     "test_mlfq"
 
 char *child_argv[CNT_CHILD][3] = {
-  // {NAME_CHILD_MLFQ, "0", 0},
-  // {NAME_CHILD_MLFQ, "1", 0},
-  // {NAME_CHILD_MLFQ, "0", 0},
-  // {NAME_CHILD_MLFQ, "1", 0},
-  // {NAME_CHILD_MLFQ, "1", 0},
-  // {NAME_CHILD_MLFQ, "0", 0},
-  // {NAME_CHILD_STRIDE, "1", 0},
+  {NAME_CHILD_MLFQ, "0", 0},
+  {NAME_CHILD_MLFQ, "1", 0},
+  {NAME_CHILD_MLFQ, "0", 0},
+  {NAME_CHILD_MLFQ, "1", 0},
+  {NAME_CHILD_MLFQ, "1", 0},
+  {NAME_CHILD_MLFQ, "0", 0},
+  {NAME_CHILD_STRIDE, "1", 0},
   {NAME_CHILD_STRIDE, "10", 0},
-  // {NAME_CHILD_STRIDE, "30", 0},
-  {NAME_CHILD_STRIDE, "70", 0},
+  {NAME_CHILD_STRIDE, "30", 0},
+  {NAME_CHILD_STRIDE, "40", 0},
   // {NAME_CHILD_STRIDE, "1", 0},
   // {NAME_CHILD_STRIDE, "2", 0},
   // {NAME_CHILD_STRIDE, "3", 0},
