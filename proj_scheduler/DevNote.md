@@ -193,8 +193,8 @@ MLFQ scheduler의 차례가 되었을시 MLFQ는 하나의 proc을 실행할 수
 * cpu share를 할당받은 프로그램은 이후 가장 먼저 실행됨을 minpass를 통해 보장받습니다.
 * `set_cpu_share()`를 처음 콜할때 percentage = 0을 입력할경우 -1을 리턴합니다.<br>
 **하지만 한 proc의 2번째 콜에서 0을 받을경우 stride scheduler에서 빠져나와 MLFQ scheduler로 돌아갑니다.**<br>
-* 전체 xv6에서 단일 stride proc이 유일하게 RUNNABLE인 proc일 경우 CPU의 지분을 모두 가져가는 현상이 발생합니다. 이는 idle process를 따로 두지 아니하고 mlfq scheduler에서 RUNNABLE을 찾지 못하였을때<br>
-추가적은 tick을 사용하여 cpu를 spin 시키지 않고 바로 stride scheduler로 cpu를 할당해주기 때문입니다.<br>
+* 전체 xv6에서 단일 stride proc이 유일하게 RUNNABLE인 proc일 경우 CPU의 지분을 모두 가져가는 현상이 발생합니다. 이는 idle process를 따로 두지 아니하고<br>
+mlfq scheduler에서 RUNNABLE을 찾지 못하였을때 추가적은 tick을 사용하여 cpu를 spin 시키지 않고 바로 stride scheduler로 cpu를 할당해주기 때문입니다.<br>
 이경우 불필요한 cpu의 낭비를 막을 수 있지만 사용자가 이를 악의적으로 활용할 경우 자신의 proc을 stride로 설정하고 나머지 모든 RUNNABLE proc을 kill/sleep 시킬경우<br>
 percentage에 상관없이 모든 cpu share를 사용할 수 있다는 단점이 있습니다.<br>
 허나 현재의 xv6에서 이러한 유저의 시스템 허점의 이용을 막기보다는 성능을 챙기는 것이 우선이라고 판단하여 지금과 같은 디자인을 하게 되었습니다.<br>
