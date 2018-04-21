@@ -67,3 +67,9 @@ ratio 값이 안정적으로 2를 보이고 있다는 점에서 time allotment�
 ![chart3](./assets/chart3.png)<br>
 1%의 cnt값과 각각의 %에서의 cnt값을 비교하여 ratio로 나타내었습니다.<br>
 조금씩의 오차가 존재하지만 ratio 값과 Stride %사이의 상관관계를 나타내기에는 충분합니다.
+
+# Test_Master
+
+[test_master.c](./assets/test_master.c)를 활용하여 최대 10개의 proc을 동시에 돌리며 생각할 수 있는 15가지의 테스트 케이스를 점검한 결과입니다.<br>
+![master_result1](./assets/master_result-01.png)<br>
+![master_result2](./assets/master_result-02.png)<br>
