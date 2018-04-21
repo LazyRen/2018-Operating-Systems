@@ -308,8 +308,8 @@ if (minpass == ptable.mlfq.pass) {
 				p = top(ptable.mlfq.queue[i], i);
 		}
 		if (boosted)
-			i = 0;
 		else
+			i = 0;
 			i++;
 	}
 }
