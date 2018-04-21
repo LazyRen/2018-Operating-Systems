@@ -6,9 +6,9 @@
 #include "stat.h"
 #include "user.h"
 
-#define CNT_TEST					6
+#define CNT_TEST					15
 // Number of child programs
-#define CNT_CHILD           15
+#define CNT_CHILD           10
 #define CNT_EXCEED          5
 
 // Name of child test program that tests Stride scheduler
@@ -18,55 +18,14 @@
 #define NOOP					"NOOP"
 
 char *child_argv[CNT_TEST][CNT_CHILD][3] = {
-	{ {NOOP, 0, 0},
-	  {NOOP, 0, 0},
-
-	}
+  //MLFQ Only Testing
+	{ {NAME_CHILD_MLFQ, "0", 0},
+    {NOOP, 0, 0} },
+  { {NAME_CHILD_MLFQ, "1", 0},
+    {NOOP, 0, 0} },
   { {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_STRIDE, "10", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_STRIDE, "10", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_STRIDE, "20", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_STRIDE, "30", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_STRIDE, "10", 0} },
-  { {NAME_CHILD_STRIDE, "1", 0},
-    {NAME_CHILD_STRIDE, "2", 0},
-    {NAME_CHILD_STRIDE, "3", 0},
-    {NAME_CHILD_STRIDE, "4", 0},
-    {NAME_CHILD_STRIDE, "5", 0},
-    {NAME_CHILD_STRIDE, "6", 0},
-    {NAME_CHILD_STRIDE, "7", 0},
-    {NAME_CHILD_STRIDE, "8", 0},
-    {NAME_CHILD_STRIDE, "9", 0},
-    {NAME_CHILD_STRIDE, "10", 0},
-    {NAME_CHILD_STRIDE, "10", 0},
-    {NAME_CHILD_STRIDE, "5", 0},
-    {NAME_CHILD_STRIDE, "3", 0},
-    {NAME_CHILD_STRIDE, "6", 0},
-    {NAME_CHILD_STRIDE, "1", 0} },
-  { {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "0", 0},},
+    {NOOP, 0, 0} },
   { {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "0", 0},
@@ -76,12 +35,7 @@ char *child_argv[CNT_TEST][CNT_CHILD][3] = {
     {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "0", 0},},
+    {NAME_CHILD_MLFQ, "0", 0} },
   { {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "1", 0},
@@ -91,29 +45,83 @@ char *child_argv[CNT_TEST][CNT_CHILD][3] = {
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "1", 0},
+    {NAME_CHILD_MLFQ, "1", 0} },
+  { {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "1", 0},
+    {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "1", 0},
+    {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "1", 0},
+    {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "1", 0},},
-};
+    {NAME_CHILD_MLFQ, "0", 0},
+    {NAME_CHILD_MLFQ, "1", 0} },
 
-char *exceed_argv[CNT_CHILD][3] = {
-  {NAME_CHILD_STRIDE, "10", 0},
-  {NAME_CHILD_STRIDE, "20", 0},
-  {NAME_CHILD_STRIDE, "30", 0},
-  {NAME_CHILD_STRIDE, "15", 0},
-  {NAME_CHILD_STRIDE, "6", 0},
+  //STRIDE Only Testing
+  { {NAME_CHILD_STRIDE, "40", 0},
+    {NOOP, 0, 0} },
+  { {NAME_CHILD_STRIDE, "10", 0},
+    {NAME_CHILD_STRIDE, "30", 0},
+    {NAME_CHILD_STRIDE, "40", 0},
+    {NOOP, 0, 0} },
+  { {NAME_CHILD_STRIDE, "1", 0},
+    {NAME_CHILD_STRIDE, "2", 0},
+    {NAME_CHILD_STRIDE, "3", 0},
+    {NAME_CHILD_STRIDE, "4", 0},
+    {NAME_CHILD_STRIDE, "5", 0},
+    {NAME_CHILD_STRIDE, "6", 0},
+    {NAME_CHILD_STRIDE, "7", 0},
+    {NAME_CHILD_STRIDE, "8", 0},
+    {NAME_CHILD_STRIDE, "9", 0},
+    {NAME_CHILD_STRIDE, "10", 0} },
+  { {NAME_CHILD_STRIDE, "80", 0},
+    {NOOP, 0, 0} },
+
+  //Stride Out of Limit
+  { {NAME_CHILD_STRIDE, "10", 0},
+    {NAME_CHILD_STRIDE, "20", 0},
+    {NAME_CHILD_STRIDE, "30", 0},
+    {NAME_CHILD_STRIDE, "15", 0},
+    {NAME_CHILD_STRIDE, "6", 0},
+    {NOOP, 0, 0} },
+  { {NAME_CHILD_STRIDE, "81", 0},
+    {NOOP, 0, 0} },
+  //MLFQ & STRIDE Mixed Testing
+  { {NAME_CHILD_MLFQ, "0", 0},
+    {NAME_CHILD_MLFQ, "1", 0},
+    {NAME_CHILD_STRIDE, "10", 0},
+    {NAME_CHILD_MLFQ, "0", 0},
+    {NAME_CHILD_MLFQ, "1", 0},
+    {NAME_CHILD_STRIDE, "10", 0},
+    {NAME_CHILD_MLFQ, "1", 0},
+    {NAME_CHILD_STRIDE, "20", 0},
+    {NAME_CHILD_MLFQ, "0", 0},
+    {NAME_CHILD_STRIDE, "30", 0} },
+  { {NAME_CHILD_STRIDE, "81", 0},
+    {NAME_CHILD_MLFQ, "1", 0},
+    {NAME_CHILD_MLFQ, "0", 0},
+    {NOOP, 0, 0} },
+  { {NAME_CHILD_MLFQ, "1", 0},
+    {NAME_CHILD_MLFQ, "0", 0},
+    {NAME_CHILD_STRIDE, "10", 0},
+    {NAME_CHILD_STRIDE, "20", 0},
+    {NAME_CHILD_STRIDE, "30", 0},
+    {NAME_CHILD_STRIDE, "15", 0},
+    {NAME_CHILD_STRIDE, "6", 0},
+    {NOOP, 0, 0} },
 };
 
 int
 main(int argc, char *argv[])
 {
   int pid;
-  int i, j;
+  int i, j, k;
   for (i = 0; i < CNT_TEST; i++) {
+    k = 0;
     for (j = 0; j < CNT_CHILD; j++) {
+      if (!strcmp(child_argv[i][j][0], NOOP))
+        break;
+      k++;
       pid = fork();
       if (pid > 0) {
         // parent
@@ -129,28 +137,11 @@ main(int argc, char *argv[])
       }
     }
 
-    for (i = 0; i < CNT_CHILD; i++) {
+    for (j = 0; j < k; j++) {
       wait();
     }
-    printf("\n%d test done\n\n", i+1)
+    printf(1, "\n%d test done\n\n", i+1);
   }
-  for (i = 0; i < CNT_EXCEED; i++) {
-    pid = fork();
-    if (pid > 0) {
-      // parent
-      continue;
-    } else if (pid == 0) {
-      // child
-      exec(exceed_argv[i][0], exceed_argv[i]);
-      printf(1, "exec failed!!\n");
-      exit();
-    } else {
-      printf(1, "fork failed!!\n");
-      exit();
-    }
-  }
-  for (i = 0; i < CNT_EXCEED; i++) {
-    wait();
-  }
+
   exit();
 }
