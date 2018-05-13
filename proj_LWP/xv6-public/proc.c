@@ -7,10 +7,6 @@
 #include "x86.h"
 #include "spinlock.h"
 
-#define NULL 0
-#define PBOOST 100
-#define MAXTICKET 10000000
-
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -200,7 +196,7 @@ sys_getlev(void)
 int
 set_cpu_share(int percentage)
 {
-  struct proc* p = myproc();
+  struct proc* p = myproc()->pthread;
   acquire(&ptable.lock);
 
   // set_cpu_share already called before
@@ -213,8 +209,15 @@ set_cpu_share(int percentage)
     }
     p->percentage += diff;
     ptable.mlfq.percentage -= diff;
-    if (p->percentage == 0)
-      initpush(ptable.mlfq.queue[0], p);
+    if (p->percentage == 0) {
+      if (p->threads == 1)
+        initpush(ptable.mlfq.queue[0], p);
+      else {
+        for (int i = 0; i < NPROC; i++)
+          if (!p->cthread[i])
+            initpush(ptable.mlfq.queue[0], p->cthread[i]);
+      }
+    }
     release(&ptable.lock);
   }
   else {
@@ -227,7 +230,13 @@ set_cpu_share(int percentage)
       cprintf("0%% share is not accepted\n");
       return -1;
     }
-    pop(p);
+    if (p->threads == 1)
+      pop(p);
+    else {
+      for (int i = 0; i < NPROC; i++)
+          if (!p->cthread[i])
+            pop(p->cthread[i]);
+    }
     p->percentage = percentage;
     p->pass = ptable.minpass;
     ptable.mlfq.percentage -= percentage;
@@ -300,7 +309,7 @@ myproc(void) {
 // If found, change state to EMBRYO and initialize
 // state required to run in the kernel.
 // Otherwise return 0.
-static struct proc*
+struct proc*
 allocproc(void)
 {
   struct proc *p;
@@ -325,6 +334,10 @@ found:
   p->timeallotment = 5;
   p->percentage = 0;
   p->pass = ptable.minpass;
+  p->threads = 1;
+  p->pthread = p;
+  p->cthread[0] = p;
+  p->rrlast = 0;
 
   release(&ptable.lock);
 
@@ -574,6 +587,7 @@ void
 scheduler(void)
 {
   struct proc *p = NULL;
+  struct proc *pproc = NULL;
   struct cpu *c = mycpu();
   uint nextboost = PBOOST;
 
@@ -601,8 +615,8 @@ scheduler(void)
         if (ptable.proc[i].percentage == 0 || ptable.proc[i].state != RUNNABLE)
           continue;
         if (minpass > ptable.proc[i].pass) {
-          p = &ptable.proc[i];
-          minpass = p->pass;
+          pproc = &ptable.proc[i];
+          minpass = pproc->pass;
         }
       }
     }
@@ -651,7 +665,7 @@ scheduler(void)
           }
           if (p->priority != 2 && p->ticks >= p->timeallotment)
             droppriority(p);
-          if (p->percentage != 0)// set_cpu_share has been called for current proc.
+          if (p->pthread->percentage != 0)// set_cpu_share has been called for current proc.
             monopoly = 0;
           p->curticks = 0;
           switchkvm();
@@ -670,6 +684,23 @@ scheduler(void)
     }
     // Stride Scheduling
     else {
+      p = NULL;
+      if (pproc->threads == 1)
+        p = pproc;
+      else {
+        for (int j = 1; j < NPROC + 1; j++) {
+          int cur = (pproc->rrlast + j) % NPROC;
+          if (pproc->cthread[cur] == NULL)
+            continue;
+          if (pproc->cthread[cur]->state == RUNNABLE) {
+            p = pproc->cthread[cur];
+            pproc->rrlast = cur;
+            break;
+          }
+        }
+        if (p == NULL)
+          continue;
+      }
       // cprintf("p pass: %d\n", p->pass);
       if(p->state != RUNNABLE)
         continue;
@@ -678,7 +709,7 @@ scheduler(void)
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-      p->pass += (int)(MAXTICKET/p->percentage);
+      pproc->pass += (int)(MAXTICKET/pproc->percentage);
       // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
       switchkvm();
 
