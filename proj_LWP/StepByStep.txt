@@ -12,7 +12,12 @@
 	If set_cpu_share() is called from thread, it will set the main thread's cpu share.
 	NOTICE that if it is not stride, threads also will be influenced by MLFQ.
 	First attemption was to remove threads all from the MLFQ scheduler, but if so, the performance of multi threading is not garanteed.
+<<<<<<< Updated upstream
+=======
 
 18.4.14
-1. Create thread_exit()
+1. Create thread_exit() -> copy & modified of exit()
 2. remove static from wakeup1 so it can be used from thread.c
+3. create thread_join() -> copy & modified of wait()
+4. change exit() so if main thread is calling exit(), terminate all threads...
+>>>>>>> Stashed changes

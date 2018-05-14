@@ -139,6 +139,7 @@ racingthreadmain(void *arg)
     gcnt = tmp;
   }
   thread_exit((void *)(tid+1));
+  return 0;
 }
 
 int
@@ -148,7 +149,7 @@ racingtest(void)
   int i;
   void *retval;
   gcnt = 0;
-  
+
   for (i = 0; i < NUM_THREAD; i++){
     if (thread_create(&threads[i], racingthreadmain, (void*)i) != 0){
       printf(1, "panic at thread_create\n");
@@ -156,8 +157,12 @@ racingtest(void)
     }
   }
   for (i = 0; i < NUM_THREAD; i++){
-    if (thread_join(threads[i], &retval) != 0 || (int)retval != i+1){
+    if (thread_join(threads[i], &retval) != 0) {
       printf(1, "panic at thread_join\n");
+      return -1;
+    }
+    if ((int)retval != i+1) {
+      printf(1, "panic at thread_join %d : %d\n", retval, i+1);
       return -1;
     }
   }
@@ -177,6 +182,7 @@ basicthreadmain(void *arg)
     }
   }
   thread_exit((void *)(tid+1));
+  return 0;
 }
 
 int
@@ -185,7 +191,7 @@ basictest(void)
   thread_t threads[NUM_THREAD];
   int i;
   void *retval;
-  
+
   for (i = 0; i < NUM_THREAD; i++){
     if (thread_create(&threads[i], basicthreadmain, (void*)i) != 0){
       printf(1, "panic at thread_create\n");
@@ -211,6 +217,7 @@ jointhreadmain(void *arg)
   sleep(200);
   printf(1, "thread_exit...\n");
   thread_exit((void *)(val*2));
+  return 0;
 }
 
 int
@@ -219,7 +226,7 @@ jointest1(void)
   thread_t threads[NUM_THREAD];
   int i;
   void *retval;
-  
+
   for (i = 1; i <= NUM_THREAD; i++){
     if (thread_create(&threads[i-1], jointhreadmain, (void*)i) != 0){
       printf(1, "panic at thread_create\n");
@@ -243,7 +250,7 @@ jointest2(void)
   thread_t threads[NUM_THREAD];
   int i;
   void *retval;
-  
+
   for (i = 1; i <= NUM_THREAD; i++){
     if (thread_create(&threads[i-1], jointhreadmain, (void*)(i)) != 0){
       printf(1, "panic at thread_create\n");
@@ -268,6 +275,7 @@ void*
 stressthreadmain(void *arg)
 {
   thread_exit(0);
+  return 0;
 }
 
 int
@@ -313,6 +321,7 @@ exitthreadmain(void *arg)
     exit();
   }
   thread_exit(0);
+  return 0;
 }
 
 int
@@ -320,7 +329,7 @@ exittest1(void)
 {
   thread_t threads[NUM_THREAD];
   int i;
-  
+
   for (i = 0; i < NUM_THREAD; i++){
     if (thread_create(&threads[i], exitthreadmain, (void*)1) != 0){
       printf(1, "panic at thread_create\n");
@@ -352,7 +361,7 @@ exittest2(void)
 void*
 execthreadmain(void *arg)
 {
-  char *args[3] = {"echo", "echo is executed!", 0}; 
+  char *args[3] = {"echo", "echo is executed!", 0};
   sleep(1);
   exec("echo", args);
 
@@ -405,6 +414,7 @@ sbrkthreadmain(void *arg)
     }
   }
   thread_exit(0);
+  return 0;
 }
 
 int
@@ -481,6 +491,7 @@ pipethreadmain(void *arg)
     }
   }
   thread_exit(0);
+  return 0;
 }
 
 int
@@ -554,6 +565,7 @@ sleepthreadmain(void *arg)
 {
   sleep(1000000);
   thread_exit(0);
+  return 0;
 }
 
 int
@@ -586,6 +598,7 @@ stridethreadmain(void *arg)
     }
   }
   thread_exit(0);
+  return 0;
 }
 
 int

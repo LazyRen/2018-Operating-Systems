@@ -19,10 +19,66 @@ extern void initpush(struct proc* queue[], struct proc *p);
 extern struct proc* allocproc(void);
 extern void wakeup1(void *chan);
 
+
 int thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg);
 void thread_exit(void *retval);
 int thread_join(thread_t thread, void **retval);
 
+// int thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
+// {
+//   return 0;
+// }
+// void thread_exit(void *retval)
+// {
+//   return;
+// }
+// int thread_join(thread_t thread, void **retval)
+// {
+//   return 0;
+// }
+
+int
+sys_thread_create(void)
+{
+  int thread, start_routine, arg;
+
+  if(argint(0, &thread) < 0)
+      return -1;
+
+  if(argint(1, &start_routine) < 0)
+      return -1;
+
+  if(argint(2, &arg) < 0)
+      return -1;
+
+  return thread_create((thread_t*)thread, (void*)start_routine, (void*)arg);
+}
+
+int
+sys_thread_exit(void)
+{
+  int retval;
+
+  if(argint(0, &retval) < 0)
+      return -1;
+
+  thread_exit((void*)retval);
+  return 0;
+}
+
+int
+sys_thread_join(void)
+{
+  int thread, retval;
+
+  if(argint(0, &thread) < 0)
+      return -1;
+
+  if(argint(1, &retval) < 0)
+      return -1;
+
+  return thread_join((thread_t)thread,(void**)retval);
+}
 
 //Based on fork() from proc.c, user stack creation is copied from exec()
 int
@@ -31,7 +87,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   int i;
   struct proc *np;
   struct proc *mproc = myproc()->mthread;   //This will always points to main thread of process.
-  uint sz, sp, ustack[2];
+  uint sz, sp, ustack[3];
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -48,8 +104,9 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
   ustack[0] = 0xffffffff;  // fake return PC
   ustack[1] = (uint)arg;
-  sp -= 2 * 4;
-  if(copyout(mproc->pgdir, sp, ustack, 2 * 4) < 0) {
+  ustack[2] = 0;
+  sp -= sizeof(ustack);
+  if(copyout(mproc->pgdir, sp, ustack, sizeof(ustack)) < 0) {
     if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0)
       mproc->sz = sz;
     np->state = UNUSED;
@@ -97,7 +154,8 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   return 0;
 }
 
-void thread_exit(void *retval)
+void
+thread_exit(void *retval)
 {
   struct proc *curproc = myproc();
   struct proc *mproc = myproc()->mthread;
@@ -116,7 +174,10 @@ void thread_exit(void *retval)
   }
 
   //save *retval into struct proc.
-  curproc->ret = retval;
+  for (int i = 0; i < NPROC; i++) {
+    if (mproc->cthread[i] == curproc)
+      mproc->ret[i] = retval;
+  }
 
   begin_op();
   iput(curproc->cwd);
@@ -140,5 +201,70 @@ void thread_exit(void *retval)
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
-  panic("zombie thread_exit");
+  // For some reason I cannot find solution, mac does not accept this panic.
+  // If this panic is uncommented, xv6 won't boot from "booting from hard dsik"
+  // panic("zombie thread_exit");
+}
+
+int
+thread_join(thread_t thread, void **retval)
+{
+  int found = 0, i;
+  struct proc *curproc = myproc();
+  struct proc *mproc = myproc()->mthread;
+  struct proc *cproc;
+  uint sz;
+
+  acquire(&ptable.lock);
+
+  for (i = 0; i < NPROC; i++) {
+    if (mproc->cthread[i]->pid == thread) {
+      cproc = mproc->cthread[i];
+      found = 1;
+      break;
+    }
+  }
+  if (!found) {
+    release(&ptable.lock);
+    return -1;
+  }
+
+  for(;;){
+    if (cproc->state == ZOMBIE) {
+      if(retval != 0)
+        *retval = cproc->ret;
+      mproc->cthread[i] = NULL;
+      mproc->rrlast = i;
+      mproc->threads -= 1;
+      kfree(cproc->kstack);
+      //TODO do I have to change all main & other threads sz???
+      if((sz = deallocuvm(cproc->pgdir, cproc->sz, cproc->sz - 2*PGSIZE)) != 0)
+        cproc->sz = sz;
+      cproc->pid = 0;
+      cproc->parent = 0;
+      cproc->name[0] = 0;
+      cproc->killed = 0;
+      cproc->state = UNUSED;
+      if (mproc->percentage == 0)
+        pop(cproc);
+      cproc->ticks = 0;
+      cproc->curticks = 0;
+      cproc->priority  = 0;
+      cproc->timequantum = 1;
+      cproc->timeallotment = 5;
+      cproc->percentage = 0;
+      cproc->pass = 0;
+      release(&ptable.lock);
+      return 0;
+    }
+
+    // No point waiting if main thread or callee thread is killed.
+    if(mproc->killed || curproc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(curproc, &ptable.lock);  //DOC: wait-sleep
+  }
 }

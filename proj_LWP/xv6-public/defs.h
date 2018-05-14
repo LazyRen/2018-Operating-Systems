@@ -120,13 +120,13 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-void			push(struct proc* queue[], struct proc *p);
-void			pop(struct proc* p);
-struct proc*	top(struct proc* queue[], int priority);
-void			droppriority(struct proc* p);
-void			boostpriority(void);
-int				getlev(void);
-int				set_cpu_share(int precentage);
+void            push(struct proc* queue[], struct proc *p);
+void            pop(struct proc* p);
+struct proc*    top(struct proc* queue[], int priority);
+void            droppriority(struct proc* p);
+void            boostpriority(void);
+int             getlev(void);
+int             set_cpu_share(int precentage);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -170,7 +170,7 @@ void            timerinit(void);
 void            idtinit(void);
 extern uint     ticks;
 void            tvinit(void);
-extern struct spinlock tickslock;
+extern struct   spinlock tickslock;
 
 // uart.c
 void            uartinit(void);
@@ -193,14 +193,19 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 
-//prac_syscall.c
-int		printk_str(char*);
+// prac_syscall.c
+int             printk_str(char*);
 
-//prac_getppid.c
-int		getppid(void);
+// prac_getppid.c
+int             getppid(void);
 
-//proc.c
-void	yield(void);
+// proc.c
+void            yield(void);
+
+// thread.c
+int             thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg);
+void            thread_exit(void *retval);
+int             thread_join(thread_t thread, void **retval);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

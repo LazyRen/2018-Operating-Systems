@@ -337,8 +337,9 @@ found:
   p->threads = 1;
   p->mthread = p;
   p->cthread[0] = p;
+  for (int i = 1; i < NPROC; i++)
+    p->cthread[i] = NULL;
   p->rrlast = 0;
-  p->ret = NULL;
 
   release(&ptable.lock);
 
@@ -478,10 +479,11 @@ fork(void)
 
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
-// until its parent calls wait() to find out it exited.
+// until its parent calls wait() to finds out it exited.
 void
 exit(void)
 {
+  struct proc *mproc = myproc()->mthread;
   struct proc *curproc = myproc();
   struct proc *p;
   int fd;
@@ -489,6 +491,33 @@ exit(void)
   if(curproc == initproc)
     panic("init exiting");
 
+  // free resources of all LWP
+  for (int i = 1; i < NPROC; i++) {
+    p = mproc->cthread[i];
+    if (p == NULL || p->state == ZOMBIE || p->state == UNUSED)
+      continue;
+
+    // Close all open files.
+    for(fd = 0; fd < NOFILE; fd++){
+      if(p->ofile[fd]){
+        fileclose(p->ofile[fd]);
+        p->ofile[fd] = 0;
+      }
+    }
+    begin_op();
+    iput(p->cwd);
+    end_op();
+    p->cwd = 0;
+    p->parent = initproc;
+    // Threads will be cleaned up by main thread's parent process later.
+    acquire(&ptable.lock);
+    p->state = ZOMBIE;
+    release(&ptable.lock);
+    wakeup1(initproc);
+  }
+
+  // After cleaning threads, clear main thread. Nothing to change.
+  curproc = mproc;
   // Close all open files.
   for(fd = 0; fd < NOFILE; fd++){
     if(curproc->ofile[fd]){
@@ -544,7 +573,10 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        freevm(p->pgdir);
+
+        // Clear shared address only if p is main thread
+        if (p->mthread == p)
+          freevm(p->pgdir);
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
@@ -588,7 +620,7 @@ void
 scheduler(void)
 {
   struct proc *p = NULL;
-  struct proc *pproc = NULL;
+  struct proc *mproc = NULL;
   struct cpu *c = mycpu();
   uint nextboost = PBOOST;
 
@@ -616,8 +648,8 @@ scheduler(void)
         if (ptable.proc[i].percentage == 0 || ptable.proc[i].state != RUNNABLE)
           continue;
         if (minpass > ptable.proc[i].pass) {
-          pproc = &ptable.proc[i];
-          minpass = pproc->pass;
+          mproc = &ptable.proc[i];
+          minpass = mproc->pass;
         }
       }
     }
@@ -684,22 +716,18 @@ scheduler(void)
       }
     }
     // Stride Scheduling
-    // Stride Scheduler will check for any existence of threads
-    // and if there is any, round robin will choose which thread to run at the moment.
-    // Meaning, stride proc will have no performance benefit from creating many threads
-    // because cpu share percentage will never be violated.
     else {
       p = NULL;
-      if (pproc->threads == 1)
-        p = pproc;
+      if (mproc->threads == 1)
+        p = mproc;
       else {
         for (int j = 1; j < NPROC + 1; j++) {
-          int cur = (pproc->rrlast + j) % NPROC;
-          if (pproc->cthread[cur] == NULL)
+          int cur = (mproc->rrlast + j) % NPROC;
+          if (mproc->cthread[cur] == NULL)
             continue;
-          if (pproc->cthread[cur]->state == RUNNABLE) {
-            p = pproc->cthread[cur];
-            pproc->rrlast = cur;
+          if (mproc->cthread[cur]->state == RUNNABLE) {
+            p = mproc->cthread[cur];
+            mproc->rrlast = cur;
             break;
           }
         }
@@ -714,7 +742,7 @@ scheduler(void)
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-      pproc->pass += (int)(MAXTICKET/pproc->percentage);
+      mproc->pass += (int)(MAXTICKET/mproc->percentage);
       // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
       switchkvm();
 
