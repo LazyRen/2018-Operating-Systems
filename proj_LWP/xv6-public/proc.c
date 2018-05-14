@@ -21,7 +21,7 @@ int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
 
-static void wakeup1(void *chan);
+void wakeup1(void *chan);
 
 // push newely created proc into highest priority queue.
 // only diffrence between initpush & push is whether the input proc is a
@@ -196,7 +196,7 @@ sys_getlev(void)
 int
 set_cpu_share(int percentage)
 {
-  struct proc* p = myproc()->pthread;
+  struct proc* p = myproc()->mthread;
   acquire(&ptable.lock);
 
   // set_cpu_share already called before
@@ -335,9 +335,10 @@ found:
   p->percentage = 0;
   p->pass = ptable.minpass;
   p->threads = 1;
-  p->pthread = p;
+  p->mthread = p;
   p->cthread[0] = p;
   p->rrlast = 0;
+  p->ret = NULL;
 
   release(&ptable.lock);
 
@@ -665,7 +666,7 @@ scheduler(void)
           }
           if (p->priority != 2 && p->ticks >= p->timeallotment)
             droppriority(p);
-          if (p->pthread->percentage != 0)// set_cpu_share has been called for current proc.
+          if (p->mthread->percentage != 0)// set_cpu_share has been called for current proc.
             monopoly = 0;
           p->curticks = 0;
           switchkvm();
@@ -683,6 +684,10 @@ scheduler(void)
       }
     }
     // Stride Scheduling
+    // Stride Scheduler will check for any existence of threads
+    // and if there is any, round robin will choose which thread to run at the moment.
+    // Meaning, stride proc will have no performance benefit from creating many threads
+    // because cpu share percentage will never be violated.
     else {
       p = NULL;
       if (pproc->threads == 1)
@@ -827,7 +832,7 @@ sleep(void *chan, struct spinlock *lk)
 //PAGEBREAK!
 // Wake up all processes sleeping on chan.
 // The ptable lock must be held.
-static void
+void
 wakeup1(void *chan)
 {
   struct proc *p;

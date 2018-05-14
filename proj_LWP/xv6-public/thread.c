@@ -17,19 +17,20 @@ extern struct {
 
 extern void initpush(struct proc* queue[], struct proc *p);
 extern struct proc* allocproc(void);
+extern void wakeup1(void *chan);
 
 int thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg);
 void thread_exit(void *retval);
 int thread_join(thread_t thread, void **retval);
 
 
-//Based on fork() from proc.c. user stack creation is copied from exec()
+//Based on fork() from proc.c, user stack creation is copied from exec()
 int
 thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 {
   int i;
   struct proc *np;
-  struct proc *pproc = myproc()->pthread;   //This will always points to main thread of process.
+  struct proc *mproc = myproc()->mthread;   //This will always points to main thread of process.
   uint sz, sp, ustack[2];
 
   // Allocate process.
@@ -38,60 +39,106 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   }
 
   //setup user stack. Copied & modified from exec()
-  if((sz = allocuvm(pproc->pgdir, pproc->sz, pproc->sz + 2*PGSIZE)) == 0) {
+  if((sz = allocuvm(mproc->pgdir, mproc->sz, mproc->sz + 2*PGSIZE)) == 0) {
     np->state = UNUSED;
     return -1;
   }
-  pproc->sz = sp = sz;
-  clearpteu(pproc->pgdir, (char*)(pproc->sz - 2*PGSIZE));
+  mproc->sz = sp = sz;
+  clearpteu(mproc->pgdir, (char*)(mproc->sz - 2*PGSIZE));
 
   ustack[0] = 0xffffffff;  // fake return PC
   ustack[1] = (uint)arg;
   sp -= 2 * 4;
-  if(copyout(pproc->pgdir, sp, ustack, 2 * 4) < 0) {
-    if((sz = deallocuvm(pproc->pgdir, pproc->sz, pproc->sz - 2*PGSIZE)) != 0)
-      pproc->sz = sz;
+  if(copyout(mproc->pgdir, sp, ustack, 2 * 4) < 0) {
+    if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0)
+      mproc->sz = sz;
     np->state = UNUSED;
     return -1;
   }
   //setup user stack done//
 
 
-  np->pgdir = pproc->pgdir;     // shared address space
-  np->sz = pproc->sz;           // shared address space
-  np->parent = pproc->parent;
-  *np->tf = *pproc->tf;         // copy all tf from main thread.
-  np->tf->esp = sp;             // use user stack that has been created just before this code.
+  np->pgdir = mproc->pgdir;            // shared address space
+  np->sz = mproc->sz;                  // shared address space
+  np->parent = mproc->parent;
+  *np->tf = *mproc->tf;                // copy all tf from main thread.
+  np->tf->esp = sp;                    // use user stack that has been created just before this code.
 
   for(i = 0; i < NOFILE; i++)
-    if(pproc->ofile[i])
-      np->ofile[i] = filedup(pproc->ofile[i]);
-  np->cwd = idup(pproc->cwd);
+    if(mproc->ofile[i])
+      np->ofile[i] = filedup(mproc->ofile[i]);
+  np->cwd = idup(mproc->cwd);
 
-  safestrcpy(np->name, pproc->name, sizeof(pproc->name));
+  safestrcpy(np->name, mproc->name, sizeof(mproc->name));
 
 
   //thread related setting
-  *thread = np->pid;          // I don't see a reason to create new tid to indicate specific thread.
-  np->pthread = pproc;
-  np->threads = 0;
-  np->cthread[0] = NULL;
-  np->tf->eip = (uint)start_routine;
+  *thread = np->pid;                    // I don't see a reason to create new tid to indicate specific thread.
+  np->mthread = mproc;                  // Parent process / main thread. Whatever we call it.
+  np->threads = 0;                      // Only main threads will have this value set.
+  np->cthread[0] = NULL;                // Only main threads will have this value set.
+  np->tf->eip = (uint)start_routine;    //
 
   acquire(&ptable.lock);
 
   //update main thread. Under ptable.lock.
-  pproc->threads++;
+  mproc->threads++;
   for (i = 0; i < NPROC; i++)
-    if (pproc->cthread[i] == NULL)
-      pproc->cthread[i] = np;
+    if (mproc->cthread[i] == NULL)
+      mproc->cthread[i] = np;
 
   np->state = RUNNABLE;
-  if (pproc->percentage == 0) //Only if parent is MLFQ proc.
+  if (mproc->percentage == 0) //Only if parent is MLFQ proc.
     initpush(ptable.mlfq.queue[0], np);
   np->pass = ptable.minpass;
 
   release(&ptable.lock);
 
   return 0;
+}
+
+void thread_exit(void *retval)
+{
+  struct proc *curproc = myproc();
+  struct proc *mproc = myproc()->mthread;
+  int fd;
+
+  //Called from main thread
+  if (curproc->threads != 0)
+    exit();
+
+  // Close all open files.
+  for(fd = 0; fd < NOFILE; fd++){
+    if(curproc->ofile[fd]){
+      fileclose(curproc->ofile[fd]);
+      curproc->ofile[fd] = 0;
+    }
+  }
+
+  //save *retval into struct proc.
+  curproc->ret = retval;
+
+  begin_op();
+  iput(curproc->cwd);
+  end_op();
+  curproc->cwd = 0;
+
+  acquire(&ptable.lock);
+
+  // Main thread might be sleeping in wait().
+  wakeup1(mproc);
+
+  // Pass abandoned children to init.                     No need I believe
+  // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  //   if(p->parent == curproc){
+  //     p->parent = initproc;
+  //     if(p->state == ZOMBIE)
+  //       wakeup1(initproc);
+  //   }
+  // }
+
+  // Jump into the scheduler, never to return.
+  curproc->state = ZOMBIE;
+  sched();
+  panic("zombie thread_exit");
 }

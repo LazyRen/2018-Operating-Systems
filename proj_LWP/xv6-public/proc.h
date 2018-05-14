@@ -57,10 +57,11 @@ struct proc {
   int percentage;              // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
   int pass;                    // Counter for stride sceduling
   int threads;                 // Counts number of threads. If it is LWP, it will be set to 0. Check main thread for accurate number.
-  struct proc *pthread;        // Points to main thread. pthread = myproc() means itself is main thread.
+  struct proc *mthread;        // Points to main thread. pthread = myproc() means itself is main thread.
   struct proc *cthread[NPROC]; // Only main thread will take care of this array. Has direct access to all threads under the process including itself.
-  int rrlast;                  // Will be used for scheduling. Only main thread will be chosen from scheduler.
+  int rrlast;                  // Will be used for scheduling. Only main thread will be chosen from stride scheduler.
                                // And which thread to run under process is determined by round robin.
+  void *ret;                   // Save any ret value from thread_exit.
   // uint ustack;                // Bottom of kernel stack for this process. Will only be used if it is LWP.
 };
 
