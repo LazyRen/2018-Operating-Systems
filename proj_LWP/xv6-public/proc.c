@@ -7,7 +7,9 @@
 #include "x86.h"
 #include "spinlock.h"
 
+#ifndef NULL
 #define NULL 0
+#endif
 #define PBOOST 100
 #define MAXTICKET 10000000
 
@@ -26,6 +28,7 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+void wakeup_t(void *chan);
 
 // push newely created proc into highest priority queue.
 // only diffrence between initpush & push is whether the input proc isaaaaaaaaa
@@ -325,6 +328,14 @@ found:
   p->timeallotment = 5;
   p->percentage = 0;
   p->pass = ptable.minpass;
+  p->threads = 1;
+  p->mthread = p;
+  p->cthread[0] = p;
+  for (int i = 1; i < NPROC; i++) {
+    p->cthread[i] = NULL;
+    p->ret[i] = NULL;
+  }
+  p->rrlast = 0;
 
   release(&ptable.lock);
 
@@ -352,6 +363,11 @@ found:
   return p;
 }
 
+struct proc*
+allocproc_t(void)
+{
+  return allocproc();
+}
 //PAGEBREAK: 32
 // Set up first user process.
 void
@@ -465,9 +481,11 @@ fork(void)
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
+
 void
 exit(void)
 {
+  struct proc *mproc = myproc()->mthread;
   struct proc *curproc = myproc();
   struct proc *p;
   int fd;
@@ -475,6 +493,33 @@ exit(void)
   if(curproc == initproc)
     panic("init exiting");
 
+  // free resources of all LWP
+  for (int i = 1; i < NPROC; i++) {
+    p = mproc->cthread[i];
+    if (p == NULL || p->state == ZOMBIE || p->state == UNUSED)
+      continue;
+
+    // Close all open files.
+    for(fd = 0; fd < NOFILE; fd++){
+      if(p->ofile[fd]){
+        fileclose(p->ofile[fd]);
+        p->ofile[fd] = 0;
+      }
+    }
+    begin_op();
+    iput(p->cwd);
+    end_op();
+    p->cwd = 0;
+    p->parent = initproc;
+    // Threads will be cleaned up by main thread's parent process later.
+    acquire(&ptable.lock);
+    p->state = ZOMBIE;
+    release(&ptable.lock);
+    wakeup1(initproc);
+  }
+
+  // After cleaning threads, clear main thread. Nothing to change.
+  curproc = mproc;
   // Close all open files.
   for(fd = 0; fd < NOFILE; fd++){
     if(curproc->ofile[fd]){
@@ -507,6 +552,7 @@ exit(void)
   sched();
   panic("zombie exit");
 }
+
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
@@ -806,6 +852,11 @@ wakeup1(void *chan)
       p->state = RUNNABLE;
 }
 
+void
+wakeup_t(void *chan)
+{
+  wakeup1(chan);
+}
 // Wake up all processes sleeping on chan.
 void
 wakeup(void *chan)
