@@ -31,7 +31,7 @@ static void wakeup1(void *chan);
 void wakeup_t(void *chan);
 
 // push newely created proc into highest priority queue.
-// only diffrence between initpush & push is whether the input proc isaaaaaaaaa
+// only diffrence between initpush & push is whether the input proc is a
 // guaranteed to be executed for the next time.
 void
 initpush(struct proc* queue[], struct proc *p)
@@ -204,20 +204,24 @@ int
 set_cpu_share(int percentage)
 {
   struct proc* p = myproc();
+  struct proc* mproc = myproc()->mthread;
   acquire(&ptable.lock);
 
   // set_cpu_share already called before
-  if (p->percentage != 0) {
-    int diff = percentage - p->percentage;
+  if (mproc->percentage != 0) {
+    int diff = percentage - mproc->percentage;
     if (ptable.mlfq.percentage - diff < 20) {
       cprintf("MLFQ must have at least of 20%% tickets\n");
       release(&ptable.lock);
       return -1;
     }
-    p->percentage += diff;
+    mproc->percentage += diff;
     ptable.mlfq.percentage -= diff;
-    if (p->percentage == 0)
-      initpush(ptable.mlfq.queue[0], p);
+    if (mproc->percentage == 0) {
+      for (int i = 0; i < NPROC; i++)
+        if (mproc->cthread[i] != NULL)
+          initpush(ptable.mlfq.queue[0], mproc->cthread[i]);
+    }
     release(&ptable.lock);
   }
   else {
@@ -230,9 +234,11 @@ set_cpu_share(int percentage)
       cprintf("0%% share is not accepted\n");
       return -1;
     }
-    pop(p);
-    p->percentage = percentage;
-    p->pass = ptable.minpass;
+    for (int i = 0; i < NPROC; i++)
+        if (mproc->cthread[i] != NULL)
+          pop(mproc->cthread[i]);
+    mproc->percentage = percentage;
+    mproc->pass = ptable.minpass;
     ptable.mlfq.percentage -= percentage;
     release(&ptable.lock);
   }
@@ -620,6 +626,7 @@ void
 scheduler(void)
 {
   struct proc *p = NULL;
+  struct proc *mproc = NULL;
   struct cpu *c = mycpu();
   uint nextboost = PBOOST;
 
@@ -647,8 +654,8 @@ scheduler(void)
         if (ptable.proc[i].percentage == 0 || ptable.proc[i].state != RUNNABLE)
           continue;
         if (minpass > ptable.proc[i].pass) {
-          p = &ptable.proc[i];
-          minpass = p->pass;
+          mproc = &ptable.proc[i];
+          minpass = mproc->pass;
         }
       }
     }
@@ -697,7 +704,7 @@ scheduler(void)
           }
           if (p->priority != 2 && p->ticks >= p->timeallotment)
             droppriority(p);
-          if (p->percentage != 0)// set_cpu_share has been called for current proc.
+          if (mproc->percentage != 0)// set_cpu_share has been called for current proc.
             monopoly = 0;
           p->curticks = 0;
           switchkvm();
@@ -717,14 +724,23 @@ scheduler(void)
     // Stride Scheduling
     else {
       // cprintf("p pass: %d\n", p->pass);
-      if(p->state != RUNNABLE)
+      int i;
+      for (i = 0; i < NPROC; i++) {
+        mproc->rrlast = (mproc->rrlast + 1) % NPROC;
+        if (mproc->cthread[mproc->rrlast] == NULL)
+          continue;
+        if (mproc->cthread[mproc->rrlast]->state == RUNNABLE)
+          break;
+      }
+      if (i == NPROC)
         continue;
+      p = mproc->cthread[mproc->rrlast];
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-      p->pass += (int)(MAXTICKET/p->percentage);
+      mproc->pass += (int)(MAXTICKET/mproc->percentage);
       // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
       switchkvm();
 

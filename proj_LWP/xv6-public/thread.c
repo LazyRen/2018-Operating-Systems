@@ -10,7 +10,6 @@
 #ifndef NULL
 #define NULL 0
 #endif
-#define thread_t uint
 
 extern struct {
   struct spinlock lock;
@@ -81,12 +80,14 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
   // Allocate process.
   if((np = allocproc_t()) == 0){
+    // cprintf("allocoroc from thread_create failed\n");
     return -1;
   }
 
   //setup user stack. Copied & modified from exec()
   if((sz = allocuvm(mproc->pgdir, mproc->sz, mproc->sz + 2*PGSIZE)) == 0) {
     np->state = UNUSED;
+    cprintf("allocuvm failed\n");
     return -1;
   }
   mproc->sz = sp = sz;
@@ -100,6 +101,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0)
       mproc->sz = sz;
     np->state = UNUSED;
+    // cprintf("copyout from thread_create failed\n");
     return -1;
   }
   //setup user stack done//
@@ -130,20 +132,24 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
   //update main thread. Under ptable.lock.
   mproc->threads++;
-  for (i = 0; i < NPROC; i++)
-    if (mproc->cthread[i] == NULL)
+  for (i = 0; i < NPROC; i++) {
+    if (mproc->cthread[i] == NULL) {
       mproc->cthread[i] = np;
+      break;
+    }
+  }
   if (i == NPROC) {
     if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0)
       mproc->sz = sz;
     np->state = UNUSED;
+    release(&ptable.lock);
+    // cprintf("finding empty cthread failed from thread_create\n");
     return -1;
   }
 
   np->state = RUNNABLE;
   if (mproc->percentage == 0) //Only if parent is MLFQ proc.
     initpush(ptable.mlfq.queue[0], np);
-  np->pass = ptable.minpass;
 
   release(&ptable.lock);
 
@@ -222,6 +228,7 @@ thread_join(thread_t thread, void **retval)
     }
   }
   if (!found) {
+    cprintf("Failed to find joining thread\n");
     release(&ptable.lock);
     return -1;
   }
@@ -237,7 +244,7 @@ thread_join(thread_t thread, void **retval)
       kfree(cproc->kstack);
       //TODO do I have to change all main & other threads sz???
       if((sz = deallocuvm(cproc->pgdir, cproc->sz, cproc->sz - 2*PGSIZE)) != 0)
-        cproc->sz = sz;
+        mproc->sz = sz;
       cproc->pid = 0;
       cproc->parent = 0;
       cproc->name[0] = 0;
