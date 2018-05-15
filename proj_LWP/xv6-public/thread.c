@@ -74,6 +74,7 @@ int
 thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 {
   int i;
+  int alloced = 0;
   struct proc *np;
   struct proc *mproc = myproc()->mthread;   //This will always points to main thread of process.
   uint sz, sp, ustack[3];
@@ -85,10 +86,24 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   }
 
   //setup user stack. Copied & modified from exec()
-  if((sz = allocuvm(mproc->pgdir, mproc->sz, mproc->sz + 2*PGSIZE)) == 0) {
-    np->state = UNUSED;
-    cprintf("allocuvm failed\n");
-    return -1;
+  for (i = 0; i < NPROC; i++) {
+    if (mproc->deallocmem[i] != -1) {
+      if ((sz = allocuvm(mproc->pgdir, mproc->deallocmem[i], mproc->deallocmem[i] + 2*PGSIZE)) == 0) {
+        np->state = UNUSED;
+        cprintf("allocuvm failed\n");
+        return -1;
+      }
+      mproc->deallocmem[i] = -1;
+      alloced = 1;
+      break;
+    }
+  }
+  if (!alloced) {
+    if((sz = allocuvm(mproc->pgdir, mproc->sz, mproc->sz + 2*PGSIZE)) == 0) {
+      np->state = UNUSED;
+      cprintf("allocuvm failed\n");
+      return -1;
+    }
   }
   mproc->sz = sp = sz;
   clearpteu(mproc->pgdir, (char*)(mproc->sz - 2*PGSIZE));
@@ -98,8 +113,14 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   ustack[2] = 0;
   sp -= sizeof(ustack);
   if(copyout(mproc->pgdir, sp, ustack, sizeof(ustack)) < 0) {
-    if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0)
-      mproc->sz = sz;
+    if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0) {
+      for (i = 0; i < NPROC; i++) {
+        if (mproc->deallocmem[i] == -1) {
+          mproc->sz = mproc->deallocmem[i] = sz;
+          break;
+        }
+      }
+    }
     np->state = UNUSED;
     // cprintf("copyout from thread_create failed\n");
     return -1;
@@ -139,8 +160,14 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     }
   }
   if (i == NPROC) {
-    if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0)
-      mproc->sz = sz;
+    if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0) {
+      for (i = 0; i < NPROC; i++) {
+        if (mproc->deallocmem[i] == -1) {
+          mproc->sz = mproc->deallocmem[i] = sz;
+          break;
+        }
+      }
+    }
     np->state = UNUSED;
     release(&ptable.lock);
     // cprintf("finding empty cthread failed from thread_create\n");
@@ -230,7 +257,7 @@ thread_join(thread_t thread, void **retval)
   if (!found) {
     cprintf("Failed to find joining thread\n");
     release(&ptable.lock);
-    return -1;
+    return 0;
   }
 
   for(;;){
@@ -243,8 +270,14 @@ thread_join(thread_t thread, void **retval)
       mproc->threads -= 1;
       kfree(cproc->kstack);
       //TODO do I have to change all main & other threads sz???
-      if((sz = deallocuvm(cproc->pgdir, cproc->sz, cproc->sz - 2*PGSIZE)) != 0)
-        mproc->sz = sz;
+      if((sz = deallocuvm(cproc->pgdir, cproc->sz, cproc->sz - 2*PGSIZE)) != 0) {
+        for (i = 0; i < NPROC; i++) {
+          if (mproc->deallocmem[i] == -1) {
+            mproc->sz = mproc->deallocmem[i] = sz;
+            break;
+          }
+        }
+      }
       cproc->pid = 0;
       cproc->parent = 0;
       cproc->name[0] = 0;
@@ -259,6 +292,14 @@ thread_join(thread_t thread, void **retval)
       cproc->timeallotment = 5;
       cproc->percentage = 0;
       cproc->pass = 0;
+      release(&ptable.lock);
+      return 0;
+    }
+    else if (cproc->state == UNUSED) {//thread called exec.
+      if(retval != NULL)
+        *retval = mproc->ret[i];
+      mproc->cthread[i] = NULL;
+      mproc->ret[i] = NULL;
       release(&ptable.lock);
       return 0;
     }

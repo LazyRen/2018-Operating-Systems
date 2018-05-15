@@ -62,6 +62,7 @@ struct proc {
   void *ret[NPROC];
   int rrlast;                  // Will be used for scheduling. Only main thread will be chosen from scheduler.
                                // And which thread to run under process is determined by round robin.
+  uint deallocmem[NPROC];
 };
 
 // Process memory is laid out contiguously, low addresses first:

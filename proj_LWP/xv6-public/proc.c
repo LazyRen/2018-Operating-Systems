@@ -336,11 +336,12 @@ found:
   p->pass = ptable.minpass;
   p->threads = 1;
   p->mthread = p;
-  p->cthread[0] = p;
-  for (int i = 1; i < NPROC; i++) {
+  for (int i = 0; i < NPROC; i++) {
     p->cthread[i] = NULL;
     p->ret[i] = NULL;
+    p->deallocmem[i]= -1;
   }
+  p->cthread[0] = p;
   p->rrlast = 0;
 
   release(&ptable.lock);
@@ -369,6 +370,7 @@ found:
   return p;
 }
 
+// Wrapper function, so it can be used out side of proc.c
 struct proc*
 allocproc_t(void)
 {
@@ -582,7 +584,8 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        freevm(p->pgdir);
+        if (p == p->mthread)
+          freevm(p->pgdir);
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
@@ -604,7 +607,7 @@ wait(void)
     }
 
     // No point waiting if we don't have any children.
-    if(!havekids || curproc->killed){
+    if(!havekids || curproc->mthread->killed){
       release(&ptable.lock);
       return -1;
     }
@@ -894,9 +897,12 @@ kill(int pid)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid){
       p->killed = 1;
+      p->mthread->killed = 1;
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
         p->state = RUNNABLE;
+      if(p->mthread->state == SLEEPING)
+        p->mthread->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
     }

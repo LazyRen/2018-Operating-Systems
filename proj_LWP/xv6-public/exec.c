@@ -7,11 +7,15 @@
 #include "x86.h"
 #include "elf.h"
 
+#ifndef NULL
+#define NULL 0
+#endif
+
 int
 exec(char *path, char **argv)
 {
   char *s, *last;
-  int i, off;
+  int i, off, shouldfree = 0;
   uint argc, sz, sp, ustack[3+MAXARG+1];
   struct elfhdr elf;
   struct inode *ip;
@@ -95,12 +99,29 @@ exec(char *path, char **argv)
 
   // Commit to the user image.
   oldpgdir = curproc->pgdir;
+  if (curproc == curproc->mthread)
+    shouldfree = 1;
   curproc->pgdir = pgdir;
   curproc->sz = sz;
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
+  for (i = 1; i < NPROC; i++) {
+    if (curproc->mthread->cthread[i] == curproc) {
+      curproc->mthread->threads -= 1;
+      curproc->mthread->cthread[i] = NULL;
+    }
+  }
+  curproc->threads = 1;
+  curproc->mthread = curproc;
+  for (i = 0; i < NPROC; i++) {
+    curproc->cthread[i] = NULL;
+    *curproc->ret = NULL;
+  }
+  curproc->cthread[0] = curproc;
+  curproc->rrlast = 0;
   switchuvm(curproc);
-  freevm(oldpgdir);
+  if (shouldfree)
+    freevm(oldpgdir);
   return 0;
 
  bad:

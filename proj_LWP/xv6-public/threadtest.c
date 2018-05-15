@@ -130,13 +130,16 @@ void*
 racingthreadmain(void *arg)
 {
   int tid = (int) arg;
-  int i;
+  volatile int i;
   int tmp;
-  for (i = 0; i < 10000000; i++){
+  for (i = 0; i < 100000000; i++){
+    nop();
     tmp = gcnt;
+    nop();
     tmp++;
     nop();
     gcnt = tmp;
+    nop();
   }
   thread_exit((void *)(tid+1));
   return 0;
@@ -380,6 +383,7 @@ exectest(void)
       return -1;
     }
   }
+  printf(1, "thread_join starts\n");
   for (i = 0; i < NUM_THREAD; i++){
     if (thread_join(threads[i], &retval) != 0){
       printf(1, "panic at thread_join\n");
