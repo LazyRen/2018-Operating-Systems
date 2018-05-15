@@ -30,7 +30,10 @@ OBJS = \
 	prac_syscall.o\
 
 # Cross-compiling (e.g., on Mac OS X)
-# TOOLPREFIX = i386-elf
+detected_OS := $(shell uname -s)
+ifeq ($(detected_OS),Darwin)  # Mac OS X
+	TOOLPREFIX = i386-elf-
+endif
 
 # Using native tools (e.g., on X86 Linux)
 #TOOLPREFIX =

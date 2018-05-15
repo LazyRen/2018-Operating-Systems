@@ -54,15 +54,8 @@ struct proc {
   int priority;                // Current position of queue(if MLFQ)
   int timequantum;             // Maximum time program can run without timer interrupt
   int timeallotment;           // Priority will be decreased if reached.
-  int percentage;              // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
+  int percentage;                 // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
   int pass;                    // Counter for stride sceduling
-  int threads;                 // Counts number of threads. If it is LWP, it will be set to 0. Check main thread for accurate number.
-  struct proc *mthread;        // Points to main thread. pthread = myproc() means itself is main thread.
-  struct proc *cthread[NPROC]; // Only main thread will take care of this array. Has direct access to all threads under the process including itself.
-  void *ret[NPROC];
-  int rrlast;                  // Will be used for scheduling. Only main thread will be chosen from scheduler.
-                               // And which thread to run under process is determined by round robin.
-  // uint ustack;                // Bottom of kernel stack for this process. Will only be used if it is LWP.
 };
 
 // Process memory is laid out contiguously, low addresses first:

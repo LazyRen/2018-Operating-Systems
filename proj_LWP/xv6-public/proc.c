@@ -7,6 +7,10 @@
 #include "x86.h"
 #include "spinlock.h"
 
+#define NULL 0
+#define PBOOST 100
+#define MAXTICKET 10000000
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -21,10 +25,10 @@ int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
 
-void wakeup1(void *chan);
+static void wakeup1(void *chan);
 
 // push newely created proc into highest priority queue.
-// only diffrence between initpush & push is whether the input proc is a
+// only diffrence between initpush & push is whether the input proc isaaaaaaaaa
 // guaranteed to be executed for the next time.
 void
 initpush(struct proc* queue[], struct proc *p)
@@ -196,7 +200,7 @@ sys_getlev(void)
 int
 set_cpu_share(int percentage)
 {
-  struct proc* p = myproc()->mthread;
+  struct proc* p = myproc();
   acquire(&ptable.lock);
 
   // set_cpu_share already called before
@@ -209,15 +213,8 @@ set_cpu_share(int percentage)
     }
     p->percentage += diff;
     ptable.mlfq.percentage -= diff;
-    if (p->percentage == 0) {
-      if (p->threads == 1)
-        initpush(ptable.mlfq.queue[0], p);
-      else {
-        for (int i = 0; i < NPROC; i++)
-          if (!p->cthread[i])
-            initpush(ptable.mlfq.queue[0], p->cthread[i]);
-      }
-    }
+    if (p->percentage == 0)
+      initpush(ptable.mlfq.queue[0], p);
     release(&ptable.lock);
   }
   else {
@@ -230,13 +227,7 @@ set_cpu_share(int percentage)
       cprintf("0%% share is not accepted\n");
       return -1;
     }
-    if (p->threads == 1)
-      pop(p);
-    else {
-      for (int i = 0; i < NPROC; i++)
-          if (!p->cthread[i])
-            pop(p->cthread[i]);
-    }
+    pop(p);
     p->percentage = percentage;
     p->pass = ptable.minpass;
     ptable.mlfq.percentage -= percentage;
@@ -309,7 +300,7 @@ myproc(void) {
 // If found, change state to EMBRYO and initialize
 // state required to run in the kernel.
 // Otherwise return 0.
-struct proc*
+static struct proc*
 allocproc(void)
 {
   struct proc *p;
@@ -334,12 +325,6 @@ found:
   p->timeallotment = 5;
   p->percentage = 0;
   p->pass = ptable.minpass;
-  p->threads = 1;
-  p->mthread = p;
-  p->cthread[0] = p;
-  for (int i = 1; i < NPROC; i++)
-    p->cthread[i] = NULL;
-  p->rrlast = 0;
 
   release(&ptable.lock);
 
@@ -479,11 +464,10 @@ fork(void)
 
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
-// until its parent calls wait() to finds out it exited.
+// until its parent calls wait() to find out it exited.
 void
 exit(void)
 {
-  struct proc *mproc = myproc()->mthread;
   struct proc *curproc = myproc();
   struct proc *p;
   int fd;
@@ -491,33 +475,6 @@ exit(void)
   if(curproc == initproc)
     panic("init exiting");
 
-  // free resources of all LWP
-  for (int i = 1; i < NPROC; i++) {
-    p = mproc->cthread[i];
-    if (p == NULL || p->state == ZOMBIE || p->state == UNUSED)
-      continue;
-
-    // Close all open files.
-    for(fd = 0; fd < NOFILE; fd++){
-      if(p->ofile[fd]){
-        fileclose(p->ofile[fd]);
-        p->ofile[fd] = 0;
-      }
-    }
-    begin_op();
-    iput(p->cwd);
-    end_op();
-    p->cwd = 0;
-    p->parent = initproc;
-    // Threads will be cleaned up by main thread's parent process later.
-    acquire(&ptable.lock);
-    p->state = ZOMBIE;
-    release(&ptable.lock);
-    wakeup1(initproc);
-  }
-
-  // After cleaning threads, clear main thread. Nothing to change.
-  curproc = mproc;
   // Close all open files.
   for(fd = 0; fd < NOFILE; fd++){
     if(curproc->ofile[fd]){
@@ -573,10 +530,7 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-
-        // Clear shared address only if p is main thread
-        if (p->mthread == p)
-          freevm(p->pgdir);
+        freevm(p->pgdir);
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
@@ -620,7 +574,6 @@ void
 scheduler(void)
 {
   struct proc *p = NULL;
-  struct proc *mproc = NULL;
   struct cpu *c = mycpu();
   uint nextboost = PBOOST;
 
@@ -648,8 +601,8 @@ scheduler(void)
         if (ptable.proc[i].percentage == 0 || ptable.proc[i].state != RUNNABLE)
           continue;
         if (minpass > ptable.proc[i].pass) {
-          mproc = &ptable.proc[i];
-          minpass = mproc->pass;
+          p = &ptable.proc[i];
+          minpass = p->pass;
         }
       }
     }
@@ -698,7 +651,7 @@ scheduler(void)
           }
           if (p->priority != 2 && p->ticks >= p->timeallotment)
             droppriority(p);
-          if (p->mthread->percentage != 0)// set_cpu_share has been called for current proc.
+          if (p->percentage != 0)// set_cpu_share has been called for current proc.
             monopoly = 0;
           p->curticks = 0;
           switchkvm();
@@ -717,23 +670,6 @@ scheduler(void)
     }
     // Stride Scheduling
     else {
-      p = NULL;
-      if (mproc->threads == 1)
-        p = mproc;
-      else {
-        for (int j = 1; j < NPROC + 1; j++) {
-          int cur = (mproc->rrlast + j) % NPROC;
-          if (mproc->cthread[cur] == NULL)
-            continue;
-          if (mproc->cthread[cur]->state == RUNNABLE) {
-            p = mproc->cthread[cur];
-            mproc->rrlast = cur;
-            break;
-          }
-        }
-        if (p == NULL)
-          continue;
-      }
       // cprintf("p pass: %d\n", p->pass);
       if(p->state != RUNNABLE)
         continue;
@@ -742,7 +678,7 @@ scheduler(void)
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-      mproc->pass += (int)(MAXTICKET/mproc->percentage);
+      p->pass += (int)(MAXTICKET/p->percentage);
       // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
       switchkvm();
 
@@ -860,7 +796,7 @@ sleep(void *chan, struct spinlock *lk)
 //PAGEBREAK!
 // Wake up all processes sleeping on chan.
 // The ptable lock must be held.
-void
+static void
 wakeup1(void *chan)
 {
   struct proc *p;

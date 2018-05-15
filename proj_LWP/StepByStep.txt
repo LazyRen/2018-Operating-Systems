@@ -21,3 +21,10 @@
 3. create thread_join() -> copy & modified of wait()
 4. change exit() so if main thread is calling exit(), terminate all threads...
 >>>>>>> Stashed changes
+
+18.4.15 03:39
+Start ALL OVER AGAIN! YAHHHH~~~~~~~~~~~
+1. types.h update
+2. remove static from wakeup1 & allocproc
+3. copy & paste previous thread.c
+4. change Makefile
