@@ -600,6 +600,7 @@ stridethreadmain(void *arg)
       __sync_fetch_and_add(&gcnt, 1);
     }
   }
+  printf(1, "exiting\n");
   thread_exit(0);
   return 0;
 }
@@ -632,6 +633,7 @@ stridetest1(void)
   }
   flag = 1;
   sleep(500);
+  printf(1, "thread_join starts\n");
   flag = 0;
   for (i = 0; i < NUM_THREAD; i++){
     if (thread_join(threads[i], &retval) != 0){

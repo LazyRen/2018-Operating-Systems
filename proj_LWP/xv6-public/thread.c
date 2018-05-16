@@ -141,7 +141,6 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
   np->pgdir = mproc->pgdir;            // shared address space
   np->sz = mproc->sz;                  // shared address space
-  np->parent = mproc->parent;
   *np->tf = *mproc->tf;                // copy all tf from main thread.
   np->tf->esp = sp;                    // use user stack that has been created just before this code.
 
@@ -157,6 +156,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   np->pid = mproc->pid;
   *thread = np->tid;
   np->mthread = mproc;                  // Parent process / main thread. Whatever we call it.
+  np->parent = mproc->parent;
   np->cthread[0] = NULL;                // Only main threads will have this value set.
   np->tf->eip = (uint)start_routine;    //
 
@@ -246,7 +246,7 @@ thread_join(thread_t thread, void **retval)
     }
     release(&mproc->lock);
     if (!found) {// TODO If not found should I return immediately or not??
-      panic("thread not found\n");
+      // panic("thread not found\n");
       return -1;
     }
 

@@ -414,16 +414,26 @@ growproc(int n)
 {
   uint sz;
   struct proc *curproc = myproc();
-
-  sz = curproc->sz;
+  struct proc *mproc = curproc->mthread;
+  acquire(&mproc->lock);
+  sz = mproc->sz;
   if(n > 0){
-    if((sz = allocuvm(curproc->pgdir, sz, sz + n)) == 0)
+    cprintf("n > 0\n");
+    if((sz = allocuvm(curproc->pgdir, sz, sz + n)) == 0) {
+      release(&mproc->lock);
       return -1;
+    }
   } else if(n < 0){
-    if((sz = deallocuvm(curproc->pgdir, sz, sz + n)) == 0)
+    if((sz = deallocuvm(curproc->pgdir, sz, sz + n)) == 0) {
+      release(&mproc->lock);
       return -1;
+    }
   }
-  curproc->sz = sz;
+  for (int i = 0; i < NPROC; i++) {
+    if (mproc->cthread[i])
+      mproc->cthread[i]->sz = sz;
+  }
+  release(&mproc->lock);
   switchuvm(curproc);
   return 0;
 }
@@ -521,23 +531,66 @@ exit(void)
   acquire(&ptable.lock);
 
   // Parent might be sleeping in wait().
-  wakeup1(curproc->parent);
-  for (int i = 0; i < NPROC; i++)
-    if (mproc->cthread[i])
+  wakeup1(mproc->parent);
+  for (int i = 0; i < NPROC; i++) {
+    if (mproc->cthread[i]) {
       mproc->cthread[i]->state = ZOMBIE;
+      // mproc->cthread[i]->killed = 1;
+    }
+  }
 
   // Pass abandoned children to init.
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->parent == mproc){
-      p->parent = initproc;
+      // cprintf("passing to initproc\n");
+      p->parent = mproc->parent;
       if(p->state == ZOMBIE)
-        wakeup1(initproc);
+        wakeup1(mproc->parent);
     }
   }
-
+  killzombie();
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
+}
+
+
+// Kill LWP that is zombie.
+// Notice that main thread never gets cleaned up from this function.
+// Main thread must be cleaned up by wait()
+int
+killzombie(void)
+{
+  struct proc *p;
+  struct proc *curproc = myproc();
+  struct proc *mproc = curproc->mthread;
+  for (int i = 1; i < NPROC; i++) {
+    if (mproc->cthread[i] && mproc->cthread[i]->state == ZOMBIE) {
+      p = mproc->cthread[i];
+      if (p == curproc)
+        continue;
+      kfree(p->kstack);
+      p->kstack = 0;
+      if (p == p->mthread)
+        freevm(p->pgdir);
+      p->pid = 0;
+      p->parent = 0;
+      p->name[0] = 0;
+      p->killed = 0;
+      p->state = UNUSED;
+      if (mproc->percentage == 0)
+        pop(p);
+      ptable.mlfq.percentage += p->percentage;
+      p->ticks = 0;
+      p->curticks = 0;
+      p->priority  = 0;
+      p->timequantum = 1;
+      p->timeallotment = 5;
+      p->percentage = 0;
+      p->pass = 0;
+    }
+  }
+  return 0;
 }
 
 // Wait for a child process to exit and return its pid.
@@ -562,13 +615,14 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        freevm(p->pgdir);
+        if (p == p->mthread)
+          freevm(p->pgdir);
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
-        if (p->percentage == 0)
+        if (p->mthread->percentage == 0)
           pop(p);
         ptable.mlfq.percentage += p->percentage;
         p->ticks = 0;
@@ -584,7 +638,7 @@ wait(void)
     }
 
     // No point waiting if we don't have any children.
-    if(!havekids || curproc->killed){
+    if(!havekids || curproc->mthread->killed){
       release(&ptable.lock);
       return -1;
     }
@@ -631,7 +685,10 @@ scheduler(void)
     //thus we can skip comparing part. Else look for the proc with min. pass.
     if (ptable.mlfq.percentage != 100){
       for (int i = 0; i < NPROC; i++) {
-        if (ptable.proc[i].percentage == 0 || ptable.proc[i].state != RUNNABLE)
+        if (ptable.proc[i].percentage == 0
+            || ptable.proc[i].state == ZOMBIE
+            || ptable.proc[i].state == UNUSED
+            || ptable.proc[i].state == EMBRYO)
           continue;
         if (minpass > ptable.proc[i].pass) {
           mproc = &ptable.proc[i];
@@ -706,20 +763,21 @@ scheduler(void)
       int i;
       for (i = 0; i < NPROC; i++) {
         mproc->rrlast = (mproc->rrlast + 1) % NPROC;
-        if (mproc->cthread[mproc->rrlast] == NULL)
-          continue;
-        if (mproc->cthread[mproc->rrlast]->state == RUNNABLE)
+        if (mproc->cthread[mproc->rrlast]
+            && mproc->cthread[mproc->rrlast]->state == RUNNABLE)
           break;
       }
-      if (i == NPROC)
+      if (i == NPROC) {
         continue;
+      }
       p = mproc->cthread[mproc->rrlast];
+      // cprintf("%d %d\n", p->pid, p->tid);
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-      p->pass += (int)(MAXTICKET/mproc->percentage);
+      mproc->pass += (int)(MAXTICKET/mproc->percentage);
       // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
       switchkvm();
 
@@ -898,6 +956,7 @@ procdump(void)
   [ZOMBIE]    "zombie"
   };
   int i;
+  int j, ppid = 0, mpid;
   struct proc *p;
   char *state;
   uint pc[10];
@@ -905,11 +964,17 @@ procdump(void)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->state == UNUSED)
       continue;
+    for (j = 0; j < NPROC; j++) {
+      if (p->parent && ptable.proc[j].tid == p->parent->tid)
+        ppid = p->parent->pid;
+      if (ptable.proc[j].tid == p->mthread->tid)
+        mpid = p->mthread->tid;
+    }
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
+    cprintf("%d %s %s ppid:%d mpid:%d ", p->pid, state, p->name, ppid, mpid);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)

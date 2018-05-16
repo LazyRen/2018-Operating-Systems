@@ -11,6 +11,15 @@
 #define NULL 0
 #endif
 
+extern struct {
+  struct spinlock lock;
+  struct proc proc[NPROC];
+  struct mlfq mlfq;         // mlfq structure added
+  int minpass;              //minimum pass value of all proc.
+} ptable;
+
+extern void initpush(struct proc* queue[], struct proc *p);
+
 int
 exec(char *path, char **argv)
 {
@@ -118,16 +127,16 @@ exec(char *path, char **argv)
       wakeup(mproc->parent);
     }
   }
+  curproc->pid = curproc->tid;
+  curproc->mthread = curproc;
+  if (mproc->percentage != 0)
+    initpush(ptable.mlfq.queue[0], curproc);
   for (int i = 0; i < NPROC; i++) {
-    curproc->tid = curproc->pid;
-    curproc->mthread = curproc;
-    for (int i = 0; i < NPROC; i++) {
-      curproc->cthread[i] = NULL;
-      curproc->ret[i] = NULL;
-    }
-    curproc->cthread[0] = curproc;
-    curproc->rrlast = 0;
+    curproc->cthread[i] = NULL;
+    curproc->ret[i] = NULL;
   }
+  curproc->cthread[0] = curproc;
+  curproc->rrlast = 0;
 
   // Commit to the user image.
   oldpgdir = curproc->pgdir;
