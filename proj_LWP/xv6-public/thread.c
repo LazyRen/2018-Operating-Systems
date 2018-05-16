@@ -1,3 +1,6 @@
+#ifndef THREAD_H_
+#define THREAD_H_
+
 #include "types.h"
 #include "defs.h"
 #include "param.h"
@@ -19,8 +22,7 @@ extern struct {
 } ptable;
 
 extern void initpush(struct proc* queue[], struct proc *p);
-extern struct proc* allocproc_t(void);
-extern void wakeup_t(void *chan);
+extern struct proc* allocproc(void);
 
 int thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg);
 void thread_exit(void *retval);
@@ -69,6 +71,7 @@ sys_thread_join(void)
   return thread_join((thread_t)thread,(void**)retval);
 }
 
+
 //Based on fork() from proc.c, user stack creation is copied from exec()
 int
 thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
@@ -80,12 +83,13 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   uint sz, sp, ustack[3];
 
   // Allocate process.
-  if((np = allocproc_t()) == 0){
+  if((np = allocproc()) == 0){
     // cprintf("allocoroc from thread_create failed\n");
     return -1;
   }
 
   //setup user stack. Copied & modified from exec()
+  /* Previous implementation
   for (i = 0; i < NPROC; i++) {
     if (mproc->deallocmem[i] != -1) {
       if ((sz = allocuvm(mproc->pgdir, mproc->deallocmem[i], mproc->deallocmem[i] + 2*PGSIZE)) == 0) {
@@ -105,22 +109,23 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
       return -1;
     }
   }
-  mproc->sz = sp = sz;
-  clearpteu(mproc->pgdir, (char*)(mproc->sz - 2*PGSIZE));
-
+  */
+  acquire(&mproc->lock);
+  for (i = 0; i < NPROC; i++) {
+    if (mproc->cthread[i] == NULL) {
+      mproc->cthread[i] = np;
+      sp = mproc->ustack[i];
+    }
+  }
+  release(&mproc->lock);
   ustack[0] = 0xffffffff;  // fake return PC
   ustack[1] = (uint)arg;
   ustack[2] = 0;
   sp -= sizeof(ustack);
   if(copyout(mproc->pgdir, sp, ustack, sizeof(ustack)) < 0) {
-    if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0) {
-      for (i = 0; i < NPROC; i++) {
-        if (mproc->deallocmem[i] == -1) {
-          mproc->sz = mproc->deallocmem[i] = sz;
-          break;
-        }
-      }
-    }
+    acquire(&mproc->lock);
+    mproc->cthread[i] = NULL;
+    release(&mproc->lock);
     np->state = UNUSED;
     // cprintf("copyout from thread_create failed\n");
     return -1;
@@ -143,36 +148,13 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
 
   //thread related setting
-  *thread = np->pid;                    // I don't see a reason to create new tid to indicate specific thread.
+  np->pid = mproc->pid;
+  *thread = np->tid;
   np->mthread = mproc;                  // Parent process / main thread. Whatever we call it.
-  np->threads = 0;                      // Only main threads will have this value set.
   np->cthread[0] = NULL;                // Only main threads will have this value set.
   np->tf->eip = (uint)start_routine;    //
 
   acquire(&ptable.lock);
-
-  //update main thread. Under ptable.lock.
-  mproc->threads++;
-  for (i = 0; i < NPROC; i++) {
-    if (mproc->cthread[i] == NULL) {
-      mproc->cthread[i] = np;
-      break;
-    }
-  }
-  if (i == NPROC) {
-    if((sz = deallocuvm(mproc->pgdir, mproc->sz, mproc->sz - 2*PGSIZE)) != 0) {
-      for (i = 0; i < NPROC; i++) {
-        if (mproc->deallocmem[i] == -1) {
-          mproc->sz = mproc->deallocmem[i] = sz;
-          break;
-        }
-      }
-    }
-    np->state = UNUSED;
-    release(&ptable.lock);
-    // cprintf("finding empty cthread failed from thread_create\n");
-    return -1;
-  }
 
   np->state = RUNNABLE;
   if (mproc->percentage == 0) //Only if parent is MLFQ proc.
@@ -215,7 +197,7 @@ thread_exit(void *retval)
   acquire(&ptable.lock);
 
   // Main thread might be sleeping in wait().
-  wakeup_t(mproc);
+  wakeup1(mproc);
 
   // Pass abandoned children to init.                     No need I believe
   // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -245,34 +227,22 @@ thread_join(thread_t thread, void **retval)
 
   acquire(&ptable.lock);
 
-  for (i = 0; i < NPROC; i++) {
-    if (mproc->cthread[i] == NULL)
-      continue;
-    if (mproc->cthread[i]->pid == thread) {
-      cproc = mproc->cthread[i];
-      found = 1;
-      break;
-    }
-  }
-  if (!found) {
-    panic("asdasd");
-    release(&ptable.lock);
-    return 0;
-  }
-
   for(;;){
+    found = 0;
+    acquire(&mproc->lock);
     for (i = 0; i < NPROC; i++) {
       if (mproc->cthread[i] == NULL)
         continue;
-      if (mproc->cthread[i]->pid == thread) {
+      if (mproc->cthread[i]->tid == thread) {
         cproc = mproc->cthread[i];
         found = 1;
         break;
       }
     }
-    if (!found) {
-      release(&ptable.lock);
-      return 0;
+    release(&mproc->lock);
+    if (!found) {// TODO If not found should I return immediately or not??
+      panic("thread not found\n");
+      return -1;
     }
 
     if (cproc->state == ZOMBIE) {
@@ -280,18 +250,7 @@ thread_join(thread_t thread, void **retval)
         *retval = mproc->ret[i];
       mproc->cthread[i] = NULL;
       mproc->ret[i] = NULL;
-      mproc->rrlast = i;
-      mproc->threads -= 1;
       kfree(cproc->kstack);
-      //TODO do I have to change all main & other threads sz???
-      if((sz = deallocuvm(cproc->pgdir, cproc->sz, cproc->sz - 2*PGSIZE)) != 0) {
-        for (i = 0; i < NPROC; i++) {
-          if (mproc->deallocmem[i] == -1) {
-            mproc->sz = mproc->deallocmem[i] = sz;
-            break;
-          }
-        }
-      }
       cproc->pid = 0;
       cproc->parent = 0;
       cproc->name[0] = 0;
@@ -309,17 +268,9 @@ thread_join(thread_t thread, void **retval)
       release(&ptable.lock);
       return 0;
     }
-    else if (cproc->state == UNUSED) {//thread called exec.
-      if(retval != NULL)
-        *retval = mproc->ret[i];
-      mproc->cthread[i] = NULL;
-      mproc->ret[i] = NULL;
-      release(&ptable.lock);
-      return 0;
-    }
 
     // No point waiting if main thread or callee thread is killed.
-    if(mproc->killed || curproc->killed){
+    if(mproc->killed){
       release(&ptable.lock);
       return -1;
     }
@@ -328,3 +279,5 @@ thread_join(thread_t thread, void **retval)
     sleep(curproc, &ptable.lock);  //DOC: wait-sleep
   }
 }
+
+#endif

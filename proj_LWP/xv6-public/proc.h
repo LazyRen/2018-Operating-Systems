@@ -1,3 +1,5 @@
+#include "spinlock.h"
+
 // Per-CPU state
 struct cpu {
   uchar apicid;                // Local APIC ID
@@ -49,20 +51,25 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // Scheduler Related variables
   int ticks;                   // Runtime of program before change of priority
   int curticks;                // Runtime of program before yield
   int priority;                // Current position of queue(if MLFQ)
   int timequantum;             // Maximum time program can run without timer interrupt
   int timeallotment;           // Priority will be decreased if reached.
-  int percentage;              // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
+  int percentage;                 // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
   int pass;                    // Counter for stride sceduling
-  int threads;                 // Counts number of threads. If it is LWP, it will be set to 0. Check main thread for accurate number.
+
+  // Thread Related variables
+  int tid;
   struct proc *mthread;        // Points to main thread. pthread = myproc() means itself is main thread.
   struct proc *cthread[NPROC]; // Only main thread will take care of this array. Has direct access to all threads under the process including itself.
   void *ret[NPROC];
+  uint ustack[NPROC];          // Allocated ustack.
   int rrlast;                  // Will be used for scheduling. Only main thread will be chosen from scheduler.
                                // And which thread to run under process is determined by round robin.
-  uint deallocmem[NPROC];
+  struct spinlock lock;        // To prevent race condition of thread modification.
 };
 
 // Process memory is laid out contiguously, low addresses first:

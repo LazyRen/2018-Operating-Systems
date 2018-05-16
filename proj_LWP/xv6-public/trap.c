@@ -38,11 +38,11 @@ void
 trap(struct trapframe *tf)
 {
   if(tf->trapno == T_SYSCALL){
-    if(myproc()->killed)
+    if(myproc()->mthread->killed)
       exit();
     myproc()->tf = tf;
     syscall();
-    if(myproc()->killed)
+    if(myproc()->mthread->killed)
       exit();
     return;
   }
@@ -93,7 +93,6 @@ trap(struct trapframe *tf)
             myproc()->pid, myproc()->name, tf->trapno,
             tf->err, cpuid(), tf->eip, rcr2());
     myproc()->killed = 1;
-    myproc()->mthread->killed = 1;
   }
 
   // Force process exit if it has been killed and is in user space.

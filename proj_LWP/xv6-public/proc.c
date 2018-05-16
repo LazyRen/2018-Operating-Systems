@@ -5,7 +5,6 @@
 #include "mmu.h"
 #include "proc.h"
 #include "x86.h"
-#include "spinlock.h"
 
 #ifndef NULL
 #define NULL 0
@@ -20,18 +19,17 @@ struct {
   int minpass;              //minimum pass value of all proc.
 } ptable;
 
-struct proc *initproc;
+static struct proc *initproc;
 uint runningticks;
 int nextpid = 1;
 
 extern void forkret(void);
 extern void trapret(void);
 
-static void wakeup1(void *chan);
-void wakeup_t(void *chan);
+void wakeup1(void *chan);
 
 // push newely created proc into highest priority queue.
-// only diffrence between initpush & push is whether the input proc is a
+// only diffrence between initpush & push is whether the input proc isaaaaaaaaa
 // guaranteed to be executed for the next time.
 void
 initpush(struct proc* queue[], struct proc *p)
@@ -204,7 +202,7 @@ int
 set_cpu_share(int percentage)
 {
   struct proc* p = myproc();
-  struct proc* mproc = myproc()->mthread;
+  struct proc* mproc = p->mthread;
   acquire(&ptable.lock);
 
   // set_cpu_share already called before
@@ -217,11 +215,10 @@ set_cpu_share(int percentage)
     }
     mproc->percentage += diff;
     ptable.mlfq.percentage -= diff;
-    if (mproc->percentage == 0) {
+    if (mproc->percentage == 0)
       for (int i = 0; i < NPROC; i++)
         if (mproc->cthread[i] != NULL)
           initpush(ptable.mlfq.queue[0], mproc->cthread[i]);
-    }
     release(&ptable.lock);
   }
   else {
@@ -235,8 +232,8 @@ set_cpu_share(int percentage)
       return -1;
     }
     for (int i = 0; i < NPROC; i++)
-        if (mproc->cthread[i] != NULL)
-          pop(mproc->cthread[i]);
+      if (mproc->cthread[i] != NULL)
+        pop(mproc->cthread[i]);
     mproc->percentage = percentage;
     mproc->pass = ptable.minpass;
     ptable.mlfq.percentage -= percentage;
@@ -309,7 +306,7 @@ myproc(void) {
 // If found, change state to EMBRYO and initialize
 // state required to run in the kernel.
 // Otherwise return 0.
-static struct proc*
+struct proc*
 allocproc(void)
 {
   struct proc *p;
@@ -334,12 +331,12 @@ found:
   p->timeallotment = 5;
   p->percentage = 0;
   p->pass = ptable.minpass;
-  p->threads = 1;
+  p->tid = p->pid;
   p->mthread = p;
   for (int i = 0; i < NPROC; i++) {
     p->cthread[i] = NULL;
     p->ret[i] = NULL;
-    p->deallocmem[i]= -1;
+    p->ustack[i] = NULL;
   }
   p->cthread[0] = p;
   p->rrlast = 0;
@@ -370,12 +367,6 @@ found:
   return p;
 }
 
-// Wrapper function, so it can be used out side of proc.c
-struct proc*
-allocproc_t(void)
-{
-  return allocproc();
-}
 //PAGEBREAK: 32
 // Set up first user process.
 void
@@ -446,6 +437,8 @@ fork(void)
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
+  struct proc *mproc = curproc->mthread;
+  uint tmp;
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -460,8 +453,16 @@ fork(void)
     return -1;
   }
   np->sz = curproc->sz;
-  np->parent = curproc;
+  np->parent = mproc;               // Only main thread can be parent.
   *np->tf = *curproc->tf;
+  for (i = 0; i < NPROC; i++) {     // Copy ustack from parent.
+    np->ustack[i] = mproc->ustack[i];
+    if (mproc->cthread[i] == curproc) {
+      tmp = np->ustack[i];
+      np->ustack[i] = np->ustack[0];
+      np->ustack[0] = tmp;
+    }
+  }
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -489,70 +490,45 @@ fork(void)
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
-
 void
 exit(void)
 {
-  struct proc *mproc = myproc()->mthread;
   struct proc *curproc = myproc();
+  struct proc *mproc = curproc->mthread;
   struct proc *p;
   int fd;
 
   if(curproc == initproc)
     panic("init exiting");
 
-  // free resources of all LWP
-  for (int i = 1; i < NPROC; i++) {
-    p = mproc->cthread[i];
-    if (p == NULL || p->state == ZOMBIE || p->state == UNUSED)
-      continue;
-
-    // Close all open files.
-    for(fd = 0; fd < NOFILE; fd++){
-      if(p->ofile[fd]){
-        fileclose(p->ofile[fd]);
-        p->ofile[fd] = 0;
-      }
-    }
-    begin_op();
-    iput(p->cwd);
-    end_op();
-    p->cwd = 0;
-    p->parent = initproc;
-    // Threads will be cleaned up by main thread's parent process later.
-    acquire(&ptable.lock);
-    p->state = ZOMBIE;
-    release(&ptable.lock);
-    wakeup1(initproc);
-  }
-
-  // After cleaning threads, clear main thread. Nothing to change.
-  curproc = mproc;
-  if (curproc->state == ZOMBIE || curproc->state == UNUSED) {
-    acquire(&ptable.lock);
-    sched();
-  }
   // Close all open files.
-  for(fd = 0; fd < NOFILE; fd++){
-    if(curproc->ofile[fd]){
-      fileclose(curproc->ofile[fd]);
-      curproc->ofile[fd] = 0;
+  for (int i = 0; i < NPROC; i++) {
+    if (mproc->cthread[i]) {
+      for(fd = 0; fd < NOFILE; fd++){
+        if(mproc->cthread[i]->ofile[fd]){
+          fileclose(mproc->cthread[i]->ofile[fd]);
+          mproc->cthread[i]->ofile[fd] = 0;
+        }
+      }
+      begin_op();
+      iput(mproc->cthread[i]->cwd);
+      end_op();
+      mproc->cthread[i]->cwd = 0;
     }
   }
 
-  begin_op();
-  iput(curproc->cwd);
-  end_op();
-  curproc->cwd = 0;
 
   acquire(&ptable.lock);
 
   // Parent might be sleeping in wait().
   wakeup1(curproc->parent);
+  for (int i = 0; i < NPROC; i++)
+    if (mproc->cthread[i])
+      mproc->cthread[i]->state = ZOMBIE;
 
   // Pass abandoned children to init.
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->parent == curproc){
+    if(p->parent == mproc){
       p->parent = initproc;
       if(p->state == ZOMBIE)
         wakeup1(initproc);
@@ -560,11 +536,9 @@ exit(void)
   }
 
   // Jump into the scheduler, never to return.
-  curproc->state = ZOMBIE;
   sched();
   panic("zombie exit");
 }
-
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
@@ -580,7 +554,7 @@ wait(void)
     // Scan through table looking for exited children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != curproc && p->mthread == curproc)
+      if(p->parent != curproc)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
@@ -588,14 +562,13 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        if (p == p->mthread)
-          freevm(p->pgdir);
+        freevm(p->pgdir);
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
-        if (p->mthread->percentage == 0)
+        if (p->percentage == 0)
           pop(p);
         ptable.mlfq.percentage += p->percentage;
         p->ticks = 0;
@@ -611,7 +584,7 @@ wait(void)
     }
 
     // No point waiting if we don't have any children.
-    if(!havekids || curproc->mthread->killed){
+    if(!havekids || curproc->killed){
       release(&ptable.lock);
       return -1;
     }
@@ -730,7 +703,6 @@ scheduler(void)
     }
     // Stride Scheduling
     else {
-      // cprintf("p pass: %d\n", p->pass);
       int i;
       for (i = 0; i < NPROC; i++) {
         mproc->rrlast = (mproc->rrlast + 1) % NPROC;
@@ -747,7 +719,7 @@ scheduler(void)
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-      mproc->pass += (int)(MAXTICKET/mproc->percentage);
+      p->pass += (int)(MAXTICKET/mproc->percentage);
       // cprintf("mlfq pass: %d\n", ptable.mlfq.pass);
       switchkvm();
 
@@ -865,7 +837,7 @@ sleep(void *chan, struct spinlock *lk)
 //PAGEBREAK!
 // Wake up all processes sleeping on chan.
 // The ptable lock must be held.
-static void
+void
 wakeup1(void *chan)
 {
   struct proc *p;
@@ -875,11 +847,6 @@ wakeup1(void *chan)
       p->state = RUNNABLE;
 }
 
-void
-wakeup_t(void *chan)
-{
-  wakeup1(chan);
-}
 // Wake up all processes sleeping on chan.
 void
 wakeup(void *chan)
@@ -905,7 +872,7 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
         p->state = RUNNABLE;
-      if(p->mthread->state == SLEEPING)
+      if (p->mthread->state == SLEEPING)
         p->mthread->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
