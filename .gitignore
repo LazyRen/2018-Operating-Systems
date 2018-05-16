@@ -2,3 +2,40 @@ cscope.*
 *.sublime*
 tmp.sh
 .DS_Store
+
+# compiled source
+*.com *.class *.dll *.exe *.o *.so
+
+# Packages
+*.7z *.dmg *.gz *.iso *.jar *.rar *.tar *.zip
+
+# Logs and databases
+*.log *.sql *.sqlite
+
+# OS generated files
+.DSStore .DSStore? ._* .Spotlight-V100 .Trashes ehthumbs.db Thumbs.db Desktop.ini
+
+# Compiled Python files
+*.pyc
+
+# Compiled C++ files
+*.out
+
+# CMake
+cmake-build-debug/
+
+# cache files for sublime text
+*.tmlanguage.cache *.tmPreferences.cache *.stTheme.cache
+
+# workspace & project files are user-specific
+*.sublime-workspace
+*.sublime-project
+
+# sftp configuration file
+sftp-config.json
+
+# Package control specific files
+Package Control.last-run Package Control.ca-list Package Control.ca-bundle Package Control.system-ca-bundle Package Control.cache/ Package Control.ca-certs/ Package Control.merged-ca-bundle Package Control.user-ca-bundle oscrypto-ca-bundle.crt bhunicodeproperties.cache
+
+# Sublime-github package stores a github token in this file
+GitHub.sublime-settings
