@@ -23,6 +23,7 @@ extern struct {
 
 extern void initpush(struct proc* queue[], struct proc *p);
 extern struct proc* allocproc(void);
+extern void wakeup1(void *chan);
 
 int thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg);
 void thread_exit(void *retval);
@@ -77,10 +78,9 @@ int
 thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 {
   int i;
-  int alloced = 0;
   struct proc *np;
   struct proc *mproc = myproc()->mthread;   //This will always points to main thread of process.
-  uint sz, sp, ustack[3];
+  uint sp = 0, ustack[3];
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -115,9 +115,15 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     if (mproc->cthread[i] == NULL) {
       mproc->cthread[i] = np;
       sp = mproc->ustack[i];
+      break;
     }
   }
   release(&mproc->lock);
+  if (i == NPROC)
+  {
+    np->state = UNUSED;
+    return -1;
+  }
   ustack[0] = 0xffffffff;  // fake return PC
   ustack[1] = (uint)arg;
   ustack[2] = 0;
@@ -223,7 +229,6 @@ thread_join(thread_t thread, void **retval)
   struct proc *curproc = myproc();
   struct proc *mproc = myproc()->mthread;
   struct proc *cproc;
-  uint sz;
 
   acquire(&ptable.lock);
 
