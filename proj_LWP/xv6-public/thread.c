@@ -255,12 +255,26 @@ thread_join(thread_t thread, void **retval)
     }
   }
   if (!found) {
-    cprintf("Failed to find joining thread\n");
+    panic("asdasd");
     release(&ptable.lock);
     return 0;
   }
 
   for(;;){
+    for (i = 0; i < NPROC; i++) {
+      if (mproc->cthread[i] == NULL)
+        continue;
+      if (mproc->cthread[i]->pid == thread) {
+        cproc = mproc->cthread[i];
+        found = 1;
+        break;
+      }
+    }
+    if (!found) {
+      release(&ptable.lock);
+      return 0;
+    }
+
     if (cproc->state == ZOMBIE) {
       if(retval != NULL)
         *retval = mproc->ret[i];

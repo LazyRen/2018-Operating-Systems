@@ -20,7 +20,7 @@ struct {
   int minpass;              //minimum pass value of all proc.
 } ptable;
 
-static struct proc *initproc;
+struct proc *initproc;
 uint runningticks;
 int nextpid = 1;
 
@@ -528,6 +528,10 @@ exit(void)
 
   // After cleaning threads, clear main thread. Nothing to change.
   curproc = mproc;
+  if (curproc->state == ZOMBIE || curproc->state == UNUSED) {
+    acquire(&ptable.lock);
+    sched();
+  }
   // Close all open files.
   for(fd = 0; fd < NOFILE; fd++){
     if(curproc->ofile[fd]){
@@ -576,7 +580,7 @@ wait(void)
     // Scan through table looking for exited children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != curproc)
+      if(p->parent != curproc && p->mthread == curproc)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
@@ -591,7 +595,7 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
-        if (p->percentage == 0)
+        if (p->mthread->percentage == 0)
           pop(p);
         ptable.mlfq.percentage += p->percentage;
         p->ticks = 0;
