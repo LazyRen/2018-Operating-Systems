@@ -19,12 +19,13 @@ extern struct {
 } ptable;
 
 extern void initpush(struct proc* queue[], struct proc *p);
+extern int killzombie(void);
 
 int
 exec(char *path, char **argv)
 {
   char *s, *last;
-  int i, off;
+  int i, off, shouldfree;
   uint argc, sz, sp, ustack[3+MAXARG+1];
   struct elfhdr elf;
   struct inode *ip;
@@ -33,6 +34,8 @@ exec(char *path, char **argv)
   struct proc *curproc = myproc();
   struct proc *mproc = curproc->mthread;
 
+
+  shouldfree = curproc == mproc ? 1 : 0;
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -87,7 +90,6 @@ exec(char *path, char **argv)
     clearpteu(pgdir, (char*)(sz - 2*PGSIZE));
     curproc->ustack[i] = sz;
   }
-
   // Push argument strings, prepare rest of stack in ustack.
   for(argc = 0; argv[argc]; argc++) {
     if(argc >= MAXARG)
@@ -127,6 +129,9 @@ exec(char *path, char **argv)
       wakeup(mproc->parent);
     }
   }
+  acquire(&ptable.lock);
+  killzombie();
+  release(&ptable.lock);
   curproc->pid = curproc->tid;
   curproc->mthread = curproc;
   if (mproc->percentage != 0)
@@ -145,7 +150,8 @@ exec(char *path, char **argv)
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
   switchuvm(curproc);
-  freevm(oldpgdir);
+  if (shouldfree)
+    freevm(oldpgdir);
   return 0;
 
  bad:

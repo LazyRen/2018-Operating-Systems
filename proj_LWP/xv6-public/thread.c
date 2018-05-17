@@ -115,6 +115,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     if (mproc->cthread[i] == NULL) {
       mproc->cthread[i] = np;
       sp = mproc->ustack[i];
+      memset(sp - PGSIZE, 0, PGSIZE);
       break;
     }
   }

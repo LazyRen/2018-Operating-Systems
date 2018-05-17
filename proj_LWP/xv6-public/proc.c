@@ -418,7 +418,6 @@ growproc(int n)
   acquire(&mproc->lock);
   sz = mproc->sz;
   if(n > 0){
-    cprintf("n > 0\n");
     if((sz = allocuvm(curproc->pgdir, sz, sz + n)) == 0) {
       release(&mproc->lock);
       return -1;
