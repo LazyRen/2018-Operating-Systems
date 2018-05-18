@@ -115,7 +115,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     if (mproc->cthread[i] == NULL) {
       mproc->cthread[i] = np;
       sp = mproc->ustack[i];
-      memset(sp - PGSIZE, 0, PGSIZE);
+      memset((void*)(sp - PGSIZE), 0, PGSIZE);
       break;
     }
   }
@@ -154,7 +154,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
 
   //thread related setting
-  np->pid = mproc->pid;
+  np->pid = mproc->pid;                 // Because "process" id can exist only one within one process...
   *thread = np->tid;
   np->mthread = mproc;                  // Parent process / main thread. Whatever we call it.
   np->parent = mproc->parent;

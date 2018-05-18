@@ -26,6 +26,7 @@ int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
 
+int killzombie(struct proc* curproc);
 void wakeup1(void *chan);
 
 // push newely created proc into highest priority queue.
@@ -618,6 +619,7 @@ wait(void)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
+        // If main thread is dead, clean up other threads within that process first.
         if (p->mthread == p)
           killzombie(p);
         // Found one.
