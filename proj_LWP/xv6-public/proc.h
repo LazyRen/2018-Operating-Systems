@@ -58,7 +58,7 @@ struct proc {
   int priority;                // Current position of queue(if MLFQ)
   int timequantum;             // Maximum time program can run without timer interrupt
   int timeallotment;           // Priority will be decreased if reached.
-  int percentage;                 // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
+  int percentage;              // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
   int pass;                    // Counter for stride sceduling
 
   // Thread Related variables

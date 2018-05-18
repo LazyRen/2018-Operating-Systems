@@ -120,6 +120,7 @@ main(int argc, char *argv[])
     printf(1,"%d. %s finish\n", i, testname[i]);
     sleep(100);
   }
+
   exit();
 }
 

@@ -19,7 +19,7 @@ extern struct {
 } ptable;
 
 extern void initpush(struct proc* queue[], struct proc *p);
-extern int killzombie(void);
+extern int killzombie(struct proc* curproc);
 
 int
 exec(char *path, char **argv)
@@ -115,6 +115,10 @@ exec(char *path, char **argv)
       last = s+1;
   safestrcpy(curproc->name, last, sizeof(curproc->name));
 
+  // Push to mlfq
+  if (mproc->percentage != 0)
+    initpush(ptable.mlfq.queue[0], curproc);
+
   // Clean up threads resources
   for (i = 0; i < NPROC; i++) {
     if (mproc->cthread[i] && mproc->cthread[i] != curproc) {
@@ -130,12 +134,10 @@ exec(char *path, char **argv)
     }
   }
   acquire(&ptable.lock);
-  killzombie();
+  killzombie(curproc);
   release(&ptable.lock);
   curproc->pid = curproc->tid;
   curproc->mthread = curproc;
-  if (mproc->percentage != 0)
-    initpush(ptable.mlfq.queue[0], curproc);
   for (int i = 0; i < NPROC; i++) {
     curproc->cthread[i] = NULL;
     curproc->ret[i] = NULL;

@@ -539,15 +539,24 @@ exit(void)
   }
 
   // Pass abandoned children to init.
+  // TODO to init? or to parent? init might print 'ZOMBIE!'
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->parent == mproc){
-      // cprintf("passing to initproc\n");
+      procdump();
       p->parent = mproc->parent;
       if(p->state == ZOMBIE)
         wakeup1(mproc->parent);
     }
   }
-  killzombie();
+  // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  //   if(p->parent == mproc){
+  //     procdump();
+  //     p->parent = initproc;
+  //     if(p->state == ZOMBIE)
+  //       wakeup1(initproc);
+  //   }
+  // }
+  killzombie(curproc);
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
@@ -558,10 +567,9 @@ exit(void)
 // Notice that main thread never gets cleaned up from this function.
 // Main thread must be cleaned up by wait()
 int
-killzombie(void)
+killzombie(struct proc* curproc)
 {
   struct proc *p;
-  struct proc *curproc = myproc();
   struct proc *mproc = curproc->mthread;
   for (int i = 1; i < NPROC; i++) {
     if (mproc->cthread[i] && mproc->cthread[i]->state == ZOMBIE) {
@@ -610,6 +618,8 @@ wait(void)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
+        if (p->mthread == p)
+          killzombie(p);
         // Found one.
         pid = p->pid;
         kfree(p->kstack);
