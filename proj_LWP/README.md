@@ -18,7 +18,7 @@
 * [Design Policy](#design-policy)
 	* [Scheduling](#scheduling)
 	* [Process and Threads](#process-and-threads)
-* [Test & Result](test-result)
+* [Test & Result](#test-result)
 
 <!--te-->
 
