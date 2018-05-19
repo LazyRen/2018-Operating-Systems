@@ -83,33 +83,12 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   uint sp = 0, ustack[3];
 
   // Allocate process.
-  if((np = allocproc()) == 0){
+  if((np = allocproc()) == 0) {
     // cprintf("allocoroc from thread_create failed\n");
     return -1;
   }
 
-  //setup user stack. Copied & modified from exec()
-  /* Previous implementation
-  for (i = 0; i < NPROC; i++) {
-    if (mproc->deallocmem[i] != -1) {
-      if ((sz = allocuvm(mproc->pgdir, mproc->deallocmem[i], mproc->deallocmem[i] + 2*PGSIZE)) == 0) {
-        np->state = UNUSED;
-        cprintf("allocuvm failed\n");
-        return -1;
-      }
-      mproc->deallocmem[i] = -1;
-      alloced = 1;
-      break;
-    }
-  }
-  if (!alloced) {
-    if((sz = allocuvm(mproc->pgdir, mproc->sz, mproc->sz + 2*PGSIZE)) == 0) {
-      np->state = UNUSED;
-      cprintf("allocuvm failed\n");
-      return -1;
-    }
-  }
-  */
+  //setup user stack.
   acquire(&mproc->lock);
   for (i = 0; i < NPROC; i++) {
     if (mproc->cthread[i] == NULL) {
@@ -120,8 +99,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     }
   }
   release(&mproc->lock);
-  if (i == NPROC)
-  {
+  if (i == NPROC) {
     np->state = UNUSED;
     return -1;
   }
@@ -143,7 +121,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   np->pgdir = mproc->pgdir;            // shared address space
   np->sz = mproc->sz;                  // shared address space
   *np->tf = *mproc->tf;                // copy all tf from main thread.
-  np->tf->esp = sp;                    // use user stack that has been created just before this code.
+  np->tf->esp = sp;                    // use user stack that has been set just before this code.
 
   for(i = 0; i < NOFILE; i++)
     if(mproc->ofile[i])
@@ -155,11 +133,11 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
   //thread related setting
   np->pid = mproc->pid;                 // Because "process" id can exist only one within one process...
-  *thread = np->tid;
+  *thread = np->tid;                    // thread_t is eqaul to tid.
   np->mthread = mproc;                  // Parent process / main thread. Whatever we call it.
-  np->parent = mproc->parent;
-  np->cthread[0] = NULL;                // Only main threads will have this value set.
-  np->tf->eip = (uint)start_routine;    //
+  np->parent = mproc->parent;           // All threads within one process have same parent.
+  np->cthread[0] = NULL;                // Onl main threads will have this value set.
+  np->tf->eip = (uint)start_routine;    // Start location of thread is equal to start_routine param.
 
   acquire(&ptable.lock);
 
@@ -172,6 +150,8 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   return 0;
 }
 
+// Exit from the thread. Save retval to main thread's ret[].
+// If main thread calls thread_exit(), call exit() so process itself terminates.
 void
 thread_exit(void *retval)
 {
@@ -223,6 +203,10 @@ thread_exit(void *retval)
   // panic("zombie thread_exit");
 }
 
+// Acquire retval from thread_exit().
+// Clean up ZOMBIE worker thread so proc can be reused later.
+// If thread_join is called before actual thread is created via thread_join,
+// thread_join will return -1 to indicate ERROR.
 int
 thread_join(thread_t thread, void **retval)
 {
@@ -236,7 +220,7 @@ thread_join(thread_t thread, void **retval)
   for(;;){
     found = 0;
     acquire(&mproc->lock);
-    for (i = 0; i < NPROC; i++) {
+    for (i = 0; i < NPROC; i++) { // Find worker thread
       if (mproc->cthread[i] == NULL)
         continue;
       if (mproc->cthread[i]->tid == thread) {
@@ -246,16 +230,18 @@ thread_join(thread_t thread, void **retval)
       }
     }
     release(&mproc->lock);
-    if (!found) {// TODO If not found should I return immediately or not??
-      // panic("thread not found\n");
+    if (!found) {// If there is no such thread exist, ERROR occurs.
+      // You must create thread before ask for join.
       return -1;
     }
 
-    if (cproc->state == ZOMBIE) {
+    if (cproc->state == ZOMBIE) {// If the thread is dead(thread_exit) clean up messes.
       if(retval != NULL)
         *retval = mproc->ret[i];
+      acquire(&mproc->lock);
       mproc->cthread[i] = NULL;
       mproc->ret[i] = NULL;
+      release(&mproc->lock);
       kfree(cproc->kstack);
       cproc->pid = 0;
       cproc->parent = 0;

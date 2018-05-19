@@ -199,6 +199,8 @@ sys_getlev(void)
 // One proc may call function more than once
 // If so, percentage will be set to the last call of function
 // and any remain or lacking tickets will be exchanged with MLFQ tickets.
+// Only main thread can have  tickets. Other worker threads will be chosen by
+// round robin policy when stride scheduler chose main thread.
 int
 set_cpu_share(int percentage)
 {
@@ -535,7 +537,6 @@ exit(void)
   for (int i = 0; i < NPROC; i++) {
     if (mproc->cthread[i]) {
       mproc->cthread[i]->state = ZOMBIE;
-      // mproc->cthread[i]->killed = 1;
     }
   }
 
