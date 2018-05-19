@@ -539,24 +539,15 @@ exit(void)
     }
   }
 
-  // Pass abandoned children to init.
-  // TODO to init? or to parent? init might print 'ZOMBIE!'
+  // Pass abandoned children to main thread's parent
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->parent == mproc){
-      procdump();
       p->parent = mproc->parent;
       if(p->state == ZOMBIE)
         wakeup1(mproc->parent);
     }
   }
-  // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-  //   if(p->parent == mproc){
-  //     procdump();
-  //     p->parent = initproc;
-  //     if(p->state == ZOMBIE)
-  //       wakeup1(initproc);
-  //   }
-  // }
+
   killzombie(curproc);
   // Jump into the scheduler, never to return.
   sched();
@@ -565,8 +556,7 @@ exit(void)
 
 
 // Kill LWP that is zombie.
-// Notice that main thread never gets cleaned up from this function.
-// Main thread must be cleaned up by wait()
+// Notice that current thread never gets cleaned up from this function.
 int
 killzombie(struct proc* curproc)
 {
@@ -967,7 +957,7 @@ procdump(void)
   [ZOMBIE]    "zombie"
   };
   int i;
-  int j, ppid = 0, mpid;
+  int j, ppid = 0, mpid = 0;
   struct proc *p;
   char *state;
   uint pc[10];

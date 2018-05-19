@@ -62,10 +62,11 @@ struct proc {
   int pass;                    // Counter for stride sceduling
 
   // Thread Related variables
-  int tid;
+  int tid;                     // If main thread, pid == tid.
   struct proc *mthread;        // Points to main thread. pthread = myproc() means itself is main thread.
-  struct proc *cthread[NPROC]; // Only main thread will take care of this array. Has direct access to all threads under the process including itself.
-  void *ret[NPROC];
+  struct proc *cthread[NPROC]; // Only main thread will take care of this array.
+                               // Has direct access to all threads under the process including itself.
+  void *ret[NPROC];            // Saves retval from thread_exit() function call.
   uint ustack[NPROC];          // Allocated ustack.
   int rrlast;                  // Will be used for scheduling. Only main thread will be chosen from scheduler.
                                // And which thread to run under process is determined by round robin.
