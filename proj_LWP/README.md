@@ -34,13 +34,11 @@ xv6는 프로세스가 스케쥴링의 기본 단위임에도 불구하고, 스�
 즉 어떠한 상황에서도 프로세스가 사용되어야 할 자리에 작업 스레드가 나올 수 없습니다.<br/>
 
 * LWP는 부모 프로세스가 될 수 없습니다. LWP가 fork를 호출할경우 해당 스레드 내용이 fork되지만 부모 프로세스는 curproc->mproc 즉 메인 스레드입니다.<br/>
-
 * LWP는 메인 스레드와 같은 pid를 가지고 있습니다. 기존에 분배하던 nextpid 값은 tid가 소유하며 이는 이전 pid와 마찬가지로 `allocproc()`이 호출될 때마다 증가하는 값을 가집니다.<br/>
-
 * LWP는 새롭게 생성된 변수인 `cthread[NPROC]`, `ustack[NPROC]`, `rrlast`, `spinlock` 등을 관리하지 않습니다. 이 변수들은 프로세스내에서 메인 스레드만이 관리하는 변수들입니다.<br/>
 
-	현 README에선 한글로 통일화를 위하여 main thread == 메인 스레드, worker thread == 작업 스레드 라는 용어를 사용하도록 하겠습니다.<br/>
-	코드에서 통일되게 사용된 변수들은 mproc/mthread == 메인 스레드, curproc == 현재 프로세스(스레드), cthread == 작업 스레드 등이 있습니다.<br/>proc 구조체 내부의 변수와 함수에서 사용되는 변수를 구분하고 기존 코드와의 통일성 유지를 위하여 부득이하게 thread/proc 용어가 혼용되어 사용되었습니다.<br/>
+현 README에선 한글로 통일화를 위하여 main thread == 메인 스레드, worker thread == 작업 스레드 라는 용어를 사용하도록 하겠습니다.<br/>
+코드에서 통일되게 사용된 변수들은 mproc/mthread == 메인 스레드, curproc == 현재 프로세스(스레드), cthread == 작업 스레드 등이 있습니다.<br/>proc 구조체 내부의 변수와 함수에서 사용되는 변수를 구분하고 기존 코드와의 통일성 유지를 위하여 부득이하게 thread/proc 용어가 혼용되어 사용되었습니다.<br/>
 
 <br/>
 # Proc Structure
@@ -49,22 +47,22 @@ xv6는 프로세스가 스케쥴링의 기본 단위임에도 불구하고, 스�
 
 스레드와 관련되어 추가된 변수들은 proc 구조체에서 아래쪽에 위치하고 있습니다.<br/>
 
-* `int tid`: `allocproc()`에서 pid와 같은 값으로 초기화 됩니다. 만약 메인 스레드라면 pid == tid이며 작업 스레드의 pid는 메인 스레드와 같기 때문에 tid 값으로 관리합니다.<br/>함수 콜에서 사용하는 pthread_t는 해당 tid를 사용하여 thread를 관리합니다.<br/>
+* `int tid`: `allocproc()`에서 pid와 같은 값으로 초기화 됩니다. 만약 메인 스레드라면 pid == tid이며 작업 스레드의 pid는 메인 스레드와 같기 때문에 tid 값으로 관리합니다.<br/>함수 콜에서 사용하는 pthread_t는 해당 tid를 사용하여 스레드를 관리합니다.<br/>
 
 <br/>
 
-* `struct proc *mthread`: 현재 thread의 main thread를 가리킵니다. <br/>
-     main thread는 자기자신을 가리키고 있기 때문에 현재 proc이 main thread인지 worker thread인지는 curproc->mthread == curproc 을 확인하면 됩니다.<br/>
+* `struct proc *mthread`: 현재 스레드의 메인 스레드를 가리킵니다. <br/>
+     메인 스레드는 자기자신을 가리키고 있기 때문에 현재 proc이 메인 스레드인지 작업 스레드인지는 curproc->mthread == curproc 을 확인하면 됩니다.<br/>
 
 <br/>
 
-* `struct proc *cthread[NPROC]`: main thread는 cthread 배열 구조체를 이용하여 직접적으로 worker thread에 접근할 수 있습니다.<br/>cthread[i] == NULL이라면 해당 index는 아직 비어있는 상태라고 판단합니다.<br/>이때의 index를 이용하여 `*ret[]`과 `ustack[]`에 접근하기 때문에 해당 index는 중요합니다.<br/>cthread[i]는 `thread_create()`에서 할당되며, `thread_join()`, `wait()`, `exit()`에서 해제될 수 있습니다.<br/>
-     **구현의 편의성을 위하여 cthread[0]은 항상 main thread입니다.**<br/>
+* `struct proc *cthread[NPROC]`: 메인 스레드는 cthread 배열 구조체를 이용하여 직접적으로 작업 스레드에 접근할 수 있습니다.<br/>cthread[i] == NULL이라면 해당 index는 아직 비어있는 상태라고 판단합니다.<br/>이때의 index를 이용하여 `*ret[]`과 `ustack[]`에 접근하기 때문에 해당 index는 중요합니다.<br/>cthread[i]는 `thread_create()`에서 할당되며, `thread_join()`, `wait()`, `exit()`에서 해제될 수 있습니다.<br/>
+     **구현의 편의성을 위하여 cthread[0]은 항상 메인 스레드입니다.**<br/>
 
 <br/>
 
-* `void *ret[NPROC]`: `thread_exit()`에서 retval 값을 할당받아 저장합니다. 해당 값은 `thread_join()`에서 사용됩니다.<br/>**`thread_exit()`을 부르지 않고 worker thread가 start_routine에서 return하며 종료될 시에 retval은 저장되지 않습니다.**<br/>
-     이는 xv6에서 main함수가 exit()을 호출하지 않고 return 할 경우 에러가 발생하는 디자인을 따른 결과입니다.<br/>Worker thread가 `exit()` 혹은 `thread_exit()` 호출하지 않았을 경우 이는 곧 undefined behavior이며 이에 대한 책임은 user에게 있습니다.<br/>
+* `void *ret[NPROC]`: `thread_exit()`에서 retval 값을 할당받아 저장합니다. 해당 값은 `thread_join()`에서 사용됩니다.<br/>**`thread_exit()`을 부르지 않고 작업 스레드가 start_routine에서 return하며 종료될 시에 retval은 저장되지 않습니다.**<br/>
+     이는 xv6에서 main함수가 exit()을 호출하지 않고 return 할 경우 에러가 발생하는 디자인을 따른 결과입니다.<br/>작업 스레드가 `exit()` 혹은 `thread_exit()` 호출하지 않았을 경우 이는 곧 undefined behavior이며 이에 대한 책임은 user에게 있습니다.<br/>
 
 <br/>
 
@@ -72,11 +70,11 @@ xv6는 프로세스가 스케쥴링의 기본 단위임에도 불구하고, 스�
 
      ![pgdir](./assets/pgdir.png)
 
-* `int rrlast`: stride scheduler에서 round robin을 구현하기 위해 사용되는 변수입니다. 자세한 정보는 Design Policy에서 서술하겠습니다.<br/>
+* `int rrlast`: stride scheduler에서 round robin을 구현하기 위해 사용되는 변수입니다. 자세한 정보는 [Design Policy](#design-policy)에서 서술하겠습니다.<br/>
 
 <br/>
 
-* `struct spinlock lock`: 동시 다발적으로 main thread의 정보를 update하는 과정에서 race condition이 일어나는 것을 방지하기 위해 사용되는 락입니다.<br/>
+* `struct spinlock lock`: 동시 다발적으로 메인 스레드의 정보를 update하는 과정에서 race condition이 일어나는 것을 방지하기 위해 사용되는 락입니다.<br/>
      ptable 락을 잡을 경우 필요가 없지만 이는 더 큰 overhead를 불러올 수 있기때문에 적용하였으며, multi cpu 상황에서 발생할 수 있는 race condition 방지용이기에 CPUS=1인 상황에서는 존재유무가 영향을 미치지 않습니다.<br/>
 
 <br/>
@@ -88,17 +86,17 @@ LWP implementation을 위하여 4개의 새로운 함수가 추가되었으며 �
 ## Newly Created
 
 - `int thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)`: system call<br/>
-	새로운 worker thread(LWP)를 생성합니다.<br/>`fork()`의 경우 새로운 main thread를 생성하는 반면 `thread_create()`는 현재 프로세스(main/worker thread의 상관없이)의 main thread의 영향 아래에 있는 worker thread를 생성하기 때문에 이에 맞춰 몇가지 작업을 진행하여야 합니다.<br/>
+	새로운 작업 스레드(LWP)를 생성합니다.<br/>`fork()`의 경우 새로운 메인 스레드를 생성하는 반면 `thread_create()`는 현재 프로세스(main/worker thread의 상관없이)의 메인 스레드의 영향 아래에 있는 작업 스레드를 생성하기 때문에 이에 맞춰 몇가지 작업을 진행하여야 합니다.<br/>
 
-	1. main thread의 cthread 배열에서 빈 곳을 찾습니다. 해당 cthread[i]가 자기자신을 가리키도록 한 이후 동일 index를 사용하여 ustack[i]을 사용합니다.<br/>이때 ustack과 guard page 모두 할당된 상태이기 때문에 `memset()`을 이용해 초기화 한 이후 바로 사용합니다.<br/>
+	1. 메인 스레드의 cthread 배열에서 빈 곳을 찾습니다. 해당 cthread[i]가 자기자신을 가리키도록 한 이후 동일 index를 사용하여 ustack[i]을 사용합니다.<br/>이때 ustack과 guard page 모두 할당된 상태이기 때문에 `memset()`을 이용해 초기화 한 이후 바로 사용합니다.<br/>
 
 	2. pgdir, sz, tf등을 main thread와 동일하게 할당한 이후 tf->esp만 ustack[i]을 사용하도록 합니다.<br/>
 
-	3. thread와 관련된 struct proc 변수를 세팅합니다. pid와 parent를 main thread와 동일하게 할당하며 반환할 param인 thread_t = np->tid로 할당합니다.<br/>np->mthread = mproc, 즉 main thread 세팅과 tf->eip를 start_routine으로 변경해준뒤 마지막으로 main thread가 MLFQ인 경우에만 initpush를 통해 MLFQ에 넣습니다.<br/>
+	3. thread와 관련된 struct proc 변수를 세팅합니다. pid와 parent를 메인 스레드와 동일하게 할당하며 반환할 param인 thread_t = np->tid로 할당합니다.<br/>np->mthread = mproc, 즉 main thread 세팅과 tf->eip를 start_routine으로 변경해준뒤 마지막으로 메인 스레드가 MLFQ인 경우에만 initpush를 통해 MLFQ에 넣습니다.<br/>
 
 		<br/>
 
-- `void thread_exit(void *retval)`: system call<br/>만약 main thread가 `thread_exit()`을 호출하였을 경우 `exit()`을 통해 해당 프로세스 자체를 종료합니다. main thread가 종료된 프로세스는 존재의미가 없다고 판단하기 때문입니다.<br/>해당 스레드의 파일들을 닫고 *retval을 main thread의 ret[i]에 저장하여 후에 main thread가 사용할 수 있도록 한 이후 ZOMBIE로 상태를 변경한 이후 sched()를 통해 scheduler를 호출합니다.<br/>
+- `void thread_exit(void *retval)`: system call<br/>만약 main thread가 `thread_exit()`을 호출하였을 경우 `exit()`을 통해 해당 프로세스 자체를 종료합니다. 메인 스레드가 종료된 프로세스는 존재의미가 없다고 판단하기 때문입니다.<br/>해당 스레드의 파일들을 닫고 *retval을 메인 스레드의 ret[i]에 저장하여 후에 메인 스레드가 사용할 수 있도록 한 이후 ZOMBIE로 상태를 변경한 이후 sched()를 통해 scheduler를 호출합니다.<br/>
 
 	<br/>
 
