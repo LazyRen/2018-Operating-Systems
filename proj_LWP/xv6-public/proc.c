@@ -464,6 +464,7 @@ fork(void)
     np->state = UNUSED;
     return -1;
   }
+
   np->sz = curproc->sz;
   np->parent = mproc;               // Only main thread can be parent.
   *np->tf = *curproc->tf;
@@ -563,6 +564,7 @@ killzombie(struct proc* curproc)
 {
   struct proc *p;
   struct proc *mproc = curproc->mthread;
+  struct proc *pproc = mproc->parent;
   for (int i = 1; i < NPROC; i++) {
     if (mproc->cthread[i] && mproc->cthread[i]->state == ZOMBIE) {
       p = mproc->cthread[i];
@@ -589,6 +591,7 @@ killzombie(struct proc* curproc)
       p->pass = 0;
     }
   }
+  wakeup1(pproc);
   return 0;
 }
 
@@ -606,7 +609,7 @@ wait(void)
     // Scan through table looking for exited children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != curproc)
+      if(p->parent != curproc->mthread)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
@@ -644,9 +647,8 @@ wait(void)
       release(&ptable.lock);
       return -1;
     }
-
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
-    sleep(curproc, &ptable.lock);  //DOC: wait-sleep
+    sleep(curproc->mthread, &ptable.lock);  //DOC: wait-sleep
   }
 }
 
@@ -878,6 +880,7 @@ sleep(void *chan, struct spinlock *lk)
     acquire(&ptable.lock);  //DOC: sleeplock1
     release(lk);
   }
+
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
@@ -901,7 +904,7 @@ void
 wakeup1(void *chan)
 {
   struct proc *p;
-
+  // cprintf("wakeup1 %p\n", chan);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan)
       p->state = RUNNABLE;

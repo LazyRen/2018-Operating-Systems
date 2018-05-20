@@ -221,9 +221,7 @@ thread_join(thread_t thread, void **retval)
     found = 0;
     acquire(&mproc->lock);
     for (i = 0; i < NPROC; i++) { // Find worker thread
-      if (mproc->cthread[i] == NULL)
-        continue;
-      if (mproc->cthread[i]->tid == thread) {
+      if (mproc->cthread[i] && mproc->cthread[i]->tid == thread) {
         cproc = mproc->cthread[i];
         found = 1;
         break;
@@ -232,6 +230,7 @@ thread_join(thread_t thread, void **retval)
     release(&mproc->lock);
     if (!found) {// If there is no such thread exist, ERROR occurs.
       // You must create thread before ask for join.
+      release(&ptable.lock);
       return -1;
     }
 
@@ -268,7 +267,7 @@ thread_join(thread_t thread, void **retval)
     }
 
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
-    sleep(curproc, &ptable.lock);  //DOC: wait-sleep
+    sleep(mproc, &ptable.lock);  //DOC: wait-sleep
   }
 }
 
