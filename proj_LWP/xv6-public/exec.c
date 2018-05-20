@@ -34,7 +34,7 @@ exec(char *path, char **argv)
   struct proc *curproc = myproc();
   struct proc *mproc = curproc->mthread;
 
-
+  //free oldpgdir iff this was main thread.
   shouldfree = curproc == mproc ? 1 : 0;
   begin_op();
 
@@ -77,6 +77,7 @@ exec(char *path, char **argv)
   end_op();
   ip = 0;
 
+  // Allocate all NPROC user stacks for future use.
   // Allocate two pages at the next page boundary.
   // Make the first inaccessible.  Use the second as the user stack.
   sz = PGROUNDUP(sz);
