@@ -87,26 +87,26 @@ LWP implementation을 위하여 4개의 새로운 함수가 추가되었으며 �
 ## Newly Created
 
 - `int thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)`: system call<br/>
-	새로운 작업 스레드(LWP)를 생성합니다.<br/>`fork()`의 경우 새로운 메인 스레드를 생성하는 반면 `thread_create()`는 현재 프로세스(main/worker thread의 상관없이)의 메인 스레드의 영향 아래에 있는 작업 스레드를 생성하기 때문에 이에 맞춰 몇가지 작업을 진행하여야 합니다.<br/>
+  새로운 작업 스레드(LWP)를 생성합니다.<br/>`fork()`의 경우 새로운 메인 스레드를 생성하는 반면 `thread_create()`는 현재 프로세스(main/worker thread의 상관없이)의 메인 스레드의 영향 아래에 있는 작업 스레드를 생성하기 때문에 이에 맞춰 몇가지 작업을 진행하여야 합니다.<br/>
 
-	1. 메인 스레드의 cthread 배열에서 빈 곳을 찾습니다. 해당 cthread[i]가 자기자신을 가리키도록 한 이후 동일 index를 사용하여 ustack[i]을 사용합니다.<br/>이때 ustack과 guard page 모두 할당된 상태이기 때문에 `memset()`을 이용해 초기화 한 이후 바로 사용합니다.<br/>
+  1. 메인 스레드의 cthread 배열에서 빈 곳을 찾습니다. 해당 cthread[i]가 자기자신을 가리키도록 한 이후 동일 index를 사용하여 ustack[i]을 사용합니다.<br/>이때 ustack과 guard page 모두 할당된 상태이기 때문에 `memset()`을 이용해 초기화 한 이후 바로 사용합니다.<br/>
 
-	2. pgdir, sz, tf등을 main thread와 동일하게 할당한 이후 tf->esp만 ustack[i]을 사용하도록 합니다.<br/>
+  2. pgdir, sz, tf등을 main thread와 동일하게 할당한 이후 tf->esp만 ustack[i]을 사용하도록 합니다.<br/>
 
-	3. thread와 관련된 struct proc 변수를 세팅합니다. pid와 parent를 메인 스레드와 동일하게 할당하며 반환할 param인 thread_t = np->tid로 할당합니다.<br/>np->mthread = mproc, 즉 main thread 세팅과 tf->eip를 start_routine으로 변경해준뒤 마지막으로 메인 스레드가 MLFQ인 경우에만 initpush를 통해 MLFQ에 넣습니다.<br/>
+  3. thread와 관련된 struct proc 변수를 세팅합니다. pid와 parent를 메인 스레드와 동일하게 할당하며 반환할 param인 thread_t = np->tid로 할당합니다.<br/>np->mthread = mproc, 즉 main thread 세팅과 tf->eip를 start_routine으로 변경해준뒤 마지막으로 메인 스레드가 MLFQ인 경우에만 initpush를 통해 MLFQ에 넣습니다.<br/>
 
-		<br/>
+    <br/>
 
 - `void thread_exit(void *retval)`: system call<br/>만약 main thread가 `thread_exit()`을 호출하였을 경우 `exit()`을 통해 해당 프로세스 자체를 종료합니다. 메인 스레드가 종료된 프로세스는 존재의미가 없다고 판단하기 때문입니다.<br/>해당 스레드의 파일들을 닫고 *retval을 메인 스레드의 ret[i]에 저장하여 후에 메인 스레드가 사용할 수 있도록 한 이후 ZOMBIE로 상태를 변경한 이후 sched()를 통해 scheduler를 호출합니다.<br/>
 
-	<br/>
+  <br/>
 
 - `int thread_join(thread_t thread, void **retval)`: system call<br/>`thread_exit()`을 통해 저장된 retval을 얻어오고 ZOMBIE로 변한 proc을 정리합니다.<br/>만약 `thread_join()`이 `thread_create()`보다 먼저 호출되었다면 -1을 리턴하여 오류를 나타냅니다.<br/>만약 이후에 다시 `thread_create()`가 일어났다 하더라도 `thread_join()`을 다시 호출하지 않는 한 해당 retval을 확인할 방법은 존재하지 않습니다.<br/>그렇기 때문에 `thread_join()`과 `thred_create()`에 실행 순서를 주의하여야합니다.<br/>다만 `thread_join()`과 `thread_exit()` 중 누가 먼저 호출되었는지는 상관이 없습니다. `thread_join()`은 정상적으로 retval을 확인하며 ZOMBIE proc을 정리할 수 있습니다.<br/>
 
-	<br/>
+  <br/>
 
 - `int killzombie(struct proc* curproc)`<br/>
-	인자로 받은 프로세스의 스레드 중 ZOMBIE인 스레드들은 정리합니다. 해당 함수를 호출할때에는 극히 조심하여야 합니다.<br/>`wait()`혹은 `thread_join()`을 통해 기다리던 스레드가 원하는 반환값을 못 받을 수도 있기 때문입니다.<br/>그렇기에 `killzombie()`는 `exit()`, `wait()`, `exec()` 세 함수에서 메인 스레드가 정리될 시에만 호출됩니다.<br/>해당 함수를 호출함으로서 ZOMBIE 프로세스가 불필요하게 ZOMBIE 상태를 오랫동안 유지하는 것을 방지합니다.<br/>`killzombie()` 함수는 ptable의 proc 구조체들을 직접적으로 변경하기 때문에 ptable.lock을 잡아주어야 합니다.<br/>
+  인자로 받은 프로세스의 스레드 중 ZOMBIE인 스레드들은 정리합니다. 해당 함수를 호출할때에는 극히 조심하여야 합니다.<br/>`wait()`혹은 `thread_join()`을 통해 기다리던 스레드가 원하는 반환값을 못 받을 수도 있기 때문입니다.<br/>그렇기에 `killzombie()`는 `exit()`, `wait()`, `exec()` 세 함수에서 메인 스레드가 정리될 시에만 호출됩니다.<br/>해당 함수를 호출함으로서 ZOMBIE 프로세스가 불필요하게 ZOMBIE 상태를 오랫동안 유지하는 것을 방지합니다.<br/>`killzombie()` 함수는 ptable의 proc 구조체들을 직접적으로 변경하기 때문에 ptable.lock을 잡아주어야 합니다.<br/>
 
 <br/>
 ## Fixed
