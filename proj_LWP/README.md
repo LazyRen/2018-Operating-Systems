@@ -113,30 +113,34 @@ LWP implementation을 위하여 4개의 새로운 함수가 추가되었으며 �
 
 - `int set_cpu_share(int percentage)`<br/>호출한 프로세스의 메인 스레드의 stride ticket을 설정합니다.<br/>[Design Policy](#Design-Policy)에서 설명하였듯이 stride scheduler는 메인 스레드만을 관리하며 메인 스레드가 선택되었을때 내부에서 rrlast 변수를 이용하여 메인 스레드를 포함한 작업스레드 간의 실행은 round robin policy를 준용하여 실행됩니다.<br/>cpu_share가 설정되지 않았을 경우 모든 스레드들은 MLFQ scheduler의 영향을 받습니다.<br/>
 
-	<br/>
+  <br/>
 
 - `struct proc* allocproc(void)`<br/>
-	proc 구조체 내에 추가된 thread 관련 변수들을 초기화 해줍니다.<br/>이때의 초기화는 현재 스레드가 메인 스레드라는 가정하에 이루어지므로 작업 스레드를 생성하려 하였다면 `allocproc()` 호출 이후 추가적인 작업이 요구됩니다.<br/>
+  proc 구조체 내에 추가된 thread 관련 변수들을 초기화 해줍니다.<br/>이때의 초기화는 현재 스레드가 메인 스레드라는 가정하에 이루어지므로 작업 스레드를 생성하려 하였다면 `allocproc()` 호출 이후 추가적인 작업이 요구됩니다.<br/>
 
-	<br/>
+  <br/>
 
 - `int growproc(int n)`<br/>호출한 스레드가 포함된 프로세스의 힙 사이즈를 증가시킵니다. sz는 모든 스레드들이 공유하는 변수이기 때문에 메인 스레드와 작업 스레드 모두 해당 값을 변경해줍니다.<br/>
 
-	<br/>
+  <br/>
 
-- `int fork(void)`<br/>메인 스레드와 작업 스레드 모두 `fork()`를 호출 할 수 있습니다.<br/>어떤 스레드가 호출하였던간에 새로이 fork된 프로세스에는 호출한 스레드를 제외한 기존의 스레드들은 모두 사라진 채로 fork됩니다.<br/>이는 즉 작업 스레드가 `fork()`를 호출하였을 경우 작업 스레드가 새로운 메인 스레드로 변경되며 이에 따라 proc 구조체의 변수들의 세팅이 필요하다는 것 입니다.<br/>또한 새로운 프로세스의 parent는 기존 프로세스의 메인 스레드입니다.<br/>
+- `int fork(void)`<br/>메인 스레드와 작업 스레드 모두 `fork()`를 호출 할 수 있습니다.<br/>어떤 스레드가 호출하였던간에 새로이 fork된 프로세스에는 호출한 스레드를 제외한 기존의 스레드들은 모두 사라진 채로 fork됩니다.<br/>이는 즉 작업 스레드가 `fork()`를 호출하였을 경우 작업 스레드가 새로운 메인 스레드로 변경되며 이에 따라 proc 구조체의 변수들의 세팅이 필요하다는 것 입니다.<br/>또한 새로운 프로세스의 parent는 기존 프로세스의 메인 스레드입니다.<br/>일련의 과정을 통해 작업 스레드가 fork()를 사용하였다 하여도 child가 실제로 자신을 fork한 작업 스레드가 누구인지 확인할 방도가 존재하지 않습니다.<br/>이는 즉 wait()에서 특정 child를 기다리는 것이 불가능 함을 의미합니다. 이는 정상적인 linux POSIX design이며 더 자세한 사항은 다음을 참고하시기 바랍니다.([wait(3) man page](https://linux.die.net/man/3/wait))<br/>
 
-	<br/>
+  <br/>
 
 - `void exit(void)`<br/>`exit()`이 호출된 프로세스의 모든 스레드들의 상태를 ZOMBIE로 변경합니다.<br/>또한 해당 프로세스의 자식들을 모두 현 프로세스의 부모에게 넘겨줍니다.<br/>이후 `killzombie()`를 호출하여 새로이 생성된 ZOMBIE들을 처리해줍니다.<br/>
+
+  <br/>
+
+- `int wait(void)`<br/>`wait()`을 부른 스레드의 프로세스를 부모로 갖는 스레드 중 ZOMBIE가 존재한다면 정리 후에 리턴 합니다.<br/>만약 ZOMIBE가 없다면 메인 스레드를 chan으로 두고 sleep 합니다.<br/>모든 sleep / wakeup은 메인 스레드를 chan으로 두고 일어나기 때문에 프로세스 내의 모든 스레드가 동시에 wakeup 콜을 받게 되어 일어나게 되지만<br/>조건을 확인하고 필요한 스레드들은 다시 sleep 상태로 변하기 때문에 문제가 되지 않습니다.<br/>wait() 함수는 따로 기다리던 스레드가 메인 스레드인지 작업 스레드인지 구분하지 않습니다. 이는 `thread_exit()`시에 메인 스레드만을 wakeup 시키기 때문에<br/>`thread_join()`과 `wait()`이 병목하여 undefined behavior를 일으키는 상황은 정상적인 상황하에 없으며, 해당 상황의 발생은 user의 책임으로 넘어가기 때문입니다.<br/>
 
 	<br/>
 
 - `int exec(char *path, char **argv)`<br/>`exec()` 함수는 실제 pgdir을 셋팅하는 매우 중요한 함수입니다.<br/>새로이 pgdir을 생성하여 기존에 진행하던 할당을 모두 진행하면서 동시에 이후 작업 스레드들이 사용할 64개의 유저 스택을 미리 생성해 둡니다.<br/>이를 통해 address space내에서 힙과 스텍이 섞이는 상황을 방지하며 alloc, dealloc이 exec에서만 일어나기 때문에 스텍을 관리하기가 훨씬 편해집니다.<br/>스텍들의 시작 지점은 ustack 배열을 통해 관리하며 새로이 작업 스레드가 생성되었을 경우에는 memset으로 해당 스텍 값을 초기화만 해주면 바로 사용할 수 있습니다.<br/>또한 기존과는 다르게 exec을 실행한 스레드가 기존에 메인 스레드였을 경우에만 oldpgdir을 free해줍니다. 이를 통해 pgdir이 중복되어 free되는 불상사를 방지합니다.<br/>
 
-	<br/>
+  <br/>
 
-- `void procdump(void)`<br/>디버깅의 용이성을 위해 부모 프로세스와 메인 스레드의 pid를 추가적으로 출력하도록 합니다.<br/>
+- `void procdump(void)`<br/>디버깅의 용이성을 위해 부모 프로세스와 메인 스레드의 tid를 추가적으로 출력하도록 합니다.<br/>
 
 <br/>
 # Design Policy
