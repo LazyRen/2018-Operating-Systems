@@ -111,7 +111,7 @@ LWP implementation을 위하여 4개의 새로운 함수가 추가되었으며 �
 <br/>
 ## Fixed
 
-- `int set_cpu_share(int percentage)`<br/>호출한 프로세스의 메인 스레드의 stride ticket을 설정합니다.<br/>[Design Policy](#Design-Policy)에서 설명하였듯이 stride scheduler는 메인 스레드만을 관리하며 메인 스레드가 선택되었을때 내부에서 rrlast 변수를 이용하여 메인 스레드를 포함한 작업스레드 간의 실행은 round robin policy를 준용하여 실행됩니다.<br/>cpu_share가 설정되지 않았을 경우 모든 스레드들은 MLFQ scheduler의 영향을 받습니다.<br/>
+- `int set_cpu_share(int percentage)`<br/>호출한 프로세스의 메인 스레드의 stride ticket을 설정합니다.<br/>[Design Policy](#Design-Policy)에서 설명하였듯이 stride scheduler는 메인 스레드만을 관리하며 메인 스레드가 선택되었을때 내부에서 rrlast 변수를 이용하여 메인 스레드를 포함한 작업 스레드 간의 실행은 round robin policy를 준용하여 실행됩니다.<br/>cpu_share가 설정되지 않았을 경우 모든 스레드들은 MLFQ scheduler의 영향을 받으며 새로 fork, exec를 실행한 프로세스 또한 기존 프로세스의 cpu share에 상관없이 MLFQ의 영향을 받습니다.<br/>
 
   <br/>
 
@@ -147,11 +147,11 @@ LWP implementation을 위하여 4개의 새로운 함수가 추가되었으며 �
 
 코딩을 시작하기전 참고하기 위해 제작한 [draft file](./assets/LWP.pdf)입니다.<br/>
 
-LWP의 디자인은 많은 부분은 Linux의 pthread Design Policy를 따르고 있습니다.<br/>
+LWP의 디자인은 많은 부분 POSIX Thread Design Policy를 따르고 있습니다.<br/>
 
 ## Scheduling
 
-모든 스레드는 기본적으로 MLFQ scheduler의 영향을 받습니다.<br/>만약 프로세스에 해당하는 스레드중 임의의 스레드가 `set_cpu_share()` 함수를 호출하였을 경우 모든 스레드는 MLFQ에서 빠져나오고 메인 스레드의 ticket을 할당합니다.<br/>이후 새로이 생성되는 스레드들은 현재 프로세스의 상태에 따라 MLFQ에 push될지 혹은 stride schdulder의 영향을 받을지가 결정됩니다.<br/>
+모든 스레드는 기본적으로 MLFQ scheduler의 영향을 받습니다.<br/>만약 프로세스에 해당하는 스레드중 임의의 스레드가 `set_cpu_share()` 함수를 호출하였을 경우 모든 스레드는 MLFQ에서 빠져나오고 메인 스레드에 ticket을 할당합니다.<br/>이를 통해 메인 스레드는 이후부터 stride scheduler의 영향을 받으며, scheduler에서 선택 받았을 경우 rrlast 변수를 이용해 프로세스 내의 모든 스레드 중 누구를 실행시킬지를 round robin policy를 통해 결정합니다.<br/>이후 새로이 생성되는 스레드들은 현재 프로세스의 상태에 따라 MLFQ에 push될지 혹은 stride schdulder의 영향을 받을지가 결정됩니다.<br/>또한 모든 프로세스들은 기본적으로 MLFQ의 영향을 받습니다.<br/>이는 즉 fork(), exec()를 호출하여 새롭게 생성된 메인 스레드는 무조건 cpu_share를 0으로 설정하고 MLFQ의 영향을 받음을 의미합니다.<br/>
 
 <br/>
 
@@ -172,7 +172,11 @@ threadtest 실행시 xv6가 생성하는 proc들의 관계도 입니다.<br/>
 
 ![testresult2](./assets/testresult2.png)
 
-**※ 현재 Makefile의 CFLAG에 O0 옵션을 줄 경우 컴파일에 실패하는 상황이 발생하고 있습니다.<br/>하여 부득이하게 여전히 O2 옵션을 적용중이며, 이에 따라 test0의 race condition이 발생하지 않습니다.**<br/>
+![testresult3](./assets/testresult3.png)
+
+**※ 현재 Makefile의 CFLAG에 O0 옵션을 줄 경우 컴파일에 실패하는 상황이 발생하고 있습니다.<br/>하여 부득이하게 여전히 O2 옵션을 적용중이며, 이에 따라 test0의 race condition이 발생하지 않습니다.** <br/>
+
+**위의 문제는 특정 OS(Mac 10.13 / Linux 18.04)와 gcc version의 문제로 판단됩니다. Linux 16.04에서 O0 옵션은 정상 작동함을 확인하였습니다.**<br/>
 
 threadtest가 종료된 이후 "ctrl+p"를 이용해 `procdump()`를 실행하였을 때 init과 sh을 제외한 zombie proc이 존재하지 않음을 확인할 수 있습니다.<br/>
 
