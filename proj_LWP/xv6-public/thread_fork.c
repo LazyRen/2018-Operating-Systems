@@ -7,7 +7,7 @@
 void*
 forkthread(void *arg)
 {
-    int pid, waitreturn;
+    int pid;
     if ((pid = fork()) == -1) {
         printf(1, "panic at fork in forktest\n");
         exit();
@@ -16,10 +16,9 @@ forkthread(void *arg)
         exit();
     } else {
         printf(1, "parent\n");
-        if ((waitreturn = wait()) != pid) {
-            // printf(1, "panic at wait in forktest\n");
-            printf(1, "expect %d but wait returned %d\n", pid, waitreturn);
-            // exit();
+        if (wait() == -1) {
+            printf(1, "panic at wait in forktest\n");
+            exit();
         }
     }
     thread_exit(0);
