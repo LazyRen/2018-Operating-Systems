@@ -25,8 +25,11 @@ void
 acquire(struct spinlock *lk)
 {
   pushcli(); // disable interrupts to avoid deadlock.
-  if(holding(lk))
+  if(holding(lk)) {
+    procdump();
+    cprintf("pid: %d tid: %d", myproc()->pid, myproc()->tid);
     panic("acquire");
+  }
 
   // The xchg is atomic.
   while(xchg(&lk->locked, 1) != 0)

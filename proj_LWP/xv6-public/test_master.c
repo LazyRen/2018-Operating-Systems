@@ -20,12 +20,12 @@
 char *child_argv[CNT_TEST][CNT_CHILD][3] = {
   //MLFQ Only Testing
 	{ {NAME_CHILD_MLFQ, "0", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 1
   { {NAME_CHILD_MLFQ, "1", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 2
   { {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "1", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 3
   { {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "0", 0},
@@ -35,7 +35,8 @@ char *child_argv[CNT_TEST][CNT_CHILD][3] = {
     {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "0", 0} },
+    {NAME_CHILD_MLFQ, "0", 0},
+    {NOOP, 0, 0} },// 4
   { {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "1", 0},
@@ -45,7 +46,8 @@ char *child_argv[CNT_TEST][CNT_CHILD][3] = {
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "1", 0},
-    {NAME_CHILD_MLFQ, "1", 0} },
+    {NAME_CHILD_MLFQ, "1", 0},
+    {NOOP, 0, 0} },// 5
   { {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "0", 0},
@@ -55,15 +57,16 @@ char *child_argv[CNT_TEST][CNT_CHILD][3] = {
     {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_MLFQ, "1", 0} },
+    {NAME_CHILD_MLFQ, "1", 0},
+    {NOOP, 0, 0} },// 6
 
   //STRIDE Only Testing
   { {NAME_CHILD_STRIDE, "40", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 7
   { {NAME_CHILD_STRIDE, "10", 0},
     {NAME_CHILD_STRIDE, "30", 0},
     {NAME_CHILD_STRIDE, "40", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 8
   { {NAME_CHILD_STRIDE, "1", 0},
     {NAME_CHILD_STRIDE, "2", 0},
     {NAME_CHILD_STRIDE, "3", 0},
@@ -73,9 +76,10 @@ char *child_argv[CNT_TEST][CNT_CHILD][3] = {
     {NAME_CHILD_STRIDE, "7", 0},
     {NAME_CHILD_STRIDE, "8", 0},
     {NAME_CHILD_STRIDE, "9", 0},
-    {NAME_CHILD_STRIDE, "10", 0} },
+    {NAME_CHILD_STRIDE, "10", 0},
+    {NOOP, 0, 0} },// 9
   { {NAME_CHILD_STRIDE, "80", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 10
 
   //Stride Out of Limit
   { {NAME_CHILD_STRIDE, "10", 0},
@@ -83,9 +87,9 @@ char *child_argv[CNT_TEST][CNT_CHILD][3] = {
     {NAME_CHILD_STRIDE, "30", 0},
     {NAME_CHILD_STRIDE, "15", 0},
     {NAME_CHILD_STRIDE, "6", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 11
   { {NAME_CHILD_STRIDE, "81", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 12
 
   //MLFQ & STRIDE Mixed Testing
   { {NAME_CHILD_MLFQ, "0", 0},
@@ -97,11 +101,12 @@ char *child_argv[CNT_TEST][CNT_CHILD][3] = {
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_STRIDE, "20", 0},
     {NAME_CHILD_MLFQ, "0", 0},
-    {NAME_CHILD_STRIDE, "30", 0} },
+    {NAME_CHILD_STRIDE, "30", 0},
+    {NOOP, 0, 0} },// 13
   { {NAME_CHILD_STRIDE, "81", 0},
     {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "0", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 14
   { {NAME_CHILD_MLFQ, "1", 0},
     {NAME_CHILD_MLFQ, "0", 0},
     {NAME_CHILD_STRIDE, "10", 0},
@@ -109,7 +114,7 @@ char *child_argv[CNT_TEST][CNT_CHILD][3] = {
     {NAME_CHILD_STRIDE, "30", 0},
     {NAME_CHILD_STRIDE, "15", 0},
     {NAME_CHILD_STRIDE, "6", 0},
-    {NOOP, 0, 0} },
+    {NOOP, 0, 0} },// 15
 };
 
 int

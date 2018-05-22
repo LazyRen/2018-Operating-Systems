@@ -232,6 +232,7 @@ set_cpu_share(int percentage)
     }
     if (percentage == 0) {
       cprintf("0%% share is not accepted\n");
+      release(&ptable.lock);
       return -1;
     }
     for (int i = 0; i < NPROC; i++)
