@@ -89,7 +89,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   }
 
   //setup user stack.
-  acquire(&mproc->lock);
+
   for (i = 0; i < NPROC; i++) {
     if (mproc->cthread[i] == NULL) {
       mproc->cthread[i] = np;
@@ -98,7 +98,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
       break;
     }
   }
-  release(&mproc->lock);
+
   if (i == NPROC) {
     np->state = UNUSED;
     return -1;
@@ -108,9 +108,9 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   ustack[2] = 0;
   sp -= sizeof(ustack);
   if(copyout(mproc->pgdir, sp, ustack, sizeof(ustack)) < 0) {
-    acquire(&mproc->lock);
+
     mproc->cthread[i] = NULL;
-    release(&mproc->lock);
+
     np->state = UNUSED;
     // cprintf("copyout from thread_create failed\n");
     return -1;
@@ -219,7 +219,7 @@ thread_join(thread_t thread, void **retval)
 
   for(;;){
     found = 0;
-    acquire(&mproc->lock);
+
     for (i = 0; i < NPROC; i++) { // Find worker thread
       if (mproc->cthread[i] && mproc->cthread[i]->tid == thread) {
         cproc = mproc->cthread[i];
@@ -227,7 +227,7 @@ thread_join(thread_t thread, void **retval)
         break;
       }
     }
-    release(&mproc->lock);
+
     if (!found) {// If there is no such thread exist, ERROR occurs.
       // You must create thread before ask for join.
       release(&ptable.lock);
@@ -237,10 +237,10 @@ thread_join(thread_t thread, void **retval)
     if (cproc->state == ZOMBIE) {// If the thread is dead(thread_exit) clean up messes.
       if(retval != NULL)
         *retval = mproc->ret[i];
-      acquire(&mproc->lock);
+
       mproc->cthread[i] = NULL;
       mproc->ret[i] = NULL;
-      release(&mproc->lock);
+
       kfree(cproc->kstack);
       cproc->pid = 0;
       cproc->parent = 0;

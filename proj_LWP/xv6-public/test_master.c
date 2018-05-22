@@ -8,7 +8,7 @@
 
 #define CNT_TEST					15
 // Number of child programs
-#define CNT_CHILD           10
+#define CNT_CHILD           11
 #define CNT_EXCEED          5
 
 // Name of child test program that tests Stride scheduler
