@@ -25,6 +25,7 @@ int nextpid = 1;
 
 extern void forkret(void);
 extern void trapret(void);
+extern pte_t * walkpgdir(pde_t *pgdir, const void *va, int alloc);
 
 int killzombie(struct proc* curproc);
 void wakeup1(void *chan);
@@ -41,6 +42,7 @@ initpush(struct proc* queue[], struct proc *p)
         queue[j] = queue[j-1];
       queue[0] = p;
       ptable.mlfq.index[0] = -1;
+      p->inqueue = 1;
       return;
     }
   }
@@ -61,6 +63,7 @@ push(struct proc* queue[], struct proc *p)
       // for (int j = i; j > 0; j--)
       //   queue[j] = queue[j-1];
       queue[i] = p;
+      p->inqueue = 1;
       return;
     }
   }
@@ -109,6 +112,7 @@ pop(struct proc* p)
         ptable.mlfq.queue[i][k] = ptable.mlfq.queue[i][k+1];
       ptable.mlfq.queue[i][NPROC-1] = NULL;
       ptable.mlfq.index[i] = j;
+      p->inqueue = 0;
       return;
     }
   }
@@ -220,8 +224,9 @@ set_cpu_share(int percentage)
     ptable.mlfq.percentage -= diff;
     if (mproc->percentage == 0)
       for (int i = 0; i < NPROC; i++)
-        if (mproc->cthread[i] != NULL)
+        if (mproc->cthread[i] && !mproc->cthread[i]->inqueue) {
           initpush(ptable.mlfq.queue[0], mproc->cthread[i]);
+        }
     release(&ptable.lock);
   }
   else {
@@ -235,12 +240,12 @@ set_cpu_share(int percentage)
       release(&ptable.lock);
       return -1;
     }
-    for (int i = 0; i < NPROC; i++)
-      if (mproc->cthread[i] != NULL)
-        pop(mproc->cthread[i]);
     mproc->percentage = percentage;
     mproc->pass = ptable.minpass;
     ptable.mlfq.percentage -= percentage;
+    for (int i = 0; i < NPROC; i++)
+      if (mproc->cthread[i] && mproc->cthread[i]->inqueue)
+        pop(mproc->cthread[i]);
     release(&ptable.lock);
   }
 
@@ -335,6 +340,7 @@ found:
   p->timeallotment = 5;
   p->percentage = 0;
   p->pass = ptable.minpass;
+  p->inqueue = 0;
   p->tid = p->pid;
   p->mthread = p;
   for (int i = 0; i < NPROC; i++) {
@@ -451,7 +457,6 @@ fork(void)
   struct proc *np;
   struct proc *curproc = myproc();
   struct proc *mproc = curproc->mthread;
-  uint tmp;
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -472,9 +477,16 @@ fork(void)
   for (i = 0; i < NPROC; i++) {     // Copy ustack from parent.
     np->ustack[i] = mproc->ustack[i];
     if (mproc->cthread[i] == curproc) {
-      tmp = np->ustack[i];
-      np->ustack[i] = np->ustack[0];
-      np->ustack[0] = tmp;
+      // uint tmp;
+      // tmp = np->ustack[i];
+      // np->ustack[i] = np->ustack[0];
+      // np->ustack[0] = tmp;
+      pte_t *pteo = walkpgdir(np->pgdir, (void*)np->ustack[i] - PGSIZE, 0);
+      uint pao = PTE_ADDR(*pteo);
+      pte_t *pten = walkpgdir(np->pgdir, (void*)np->ustack[0] - PGSIZE, 0);
+      uint pan = PTE_ADDR(*pten);
+      memmove((char*)P2V(pan), (char*)P2V(pao), PGSIZE);
+      np->tf->esp = (np->tf->esp - np->ustack[i]) + np->ustack[0];
     }
   }
 
@@ -580,7 +592,7 @@ killzombie(struct proc* curproc)
       p->name[0] = 0;
       p->killed = 0;
       p->state = UNUSED;
-      if (mproc->percentage == 0)
+      if (p->inqueue)
         pop(p);
       ptable.mlfq.percentage += p->percentage;
       p->ticks = 0;
@@ -628,7 +640,7 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
-        if (p->mthread->percentage == 0)
+        if (p->inqueue)
           pop(p);
         ptable.mlfq.percentage += p->percentage;
         p->ticks = 0;
