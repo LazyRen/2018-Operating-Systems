@@ -590,6 +590,14 @@ killzombie(struct proc* curproc)
       p->timeallotment = 5;
       p->percentage = 0;
       p->pass = 0;
+      p->tid = 0;
+      p->mthread = p;
+      for (int i = 0; i < NPROC; i++) {
+        p->cthread[i] = NULL;
+        p->ustack[i] = 0;
+      }
+
+      // mproc->cthread[i] = NULL;
     }
   }
   wakeup1(pproc);
@@ -638,6 +646,12 @@ wait(void)
         p->timeallotment = 5;
         p->percentage = 0;
         p->pass = 0;
+        p->tid = 0;
+        p->mthread = p;
+        for (int i = 0; i < NPROC; i++) {
+          p->cthread[i] = NULL;
+          p->ustack[i] = 0;
+        }
         release(&ptable.lock);
         return pid;
       }
