@@ -134,9 +134,9 @@ exec(char *path, char **argv)
       wakeup(mproc->parent);
     }
   }
-  acquire(&ptable.lock);
-  killzombie(curproc);
-  release(&ptable.lock);
+  // acquire(&ptable.lock);
+  // killzombie(curproc);
+  // release(&ptable.lock);
   curproc->pid = curproc->tid;
   curproc->mthread = curproc;
   for (int i = 0; i < NPROC; i++) {

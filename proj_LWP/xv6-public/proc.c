@@ -472,8 +472,11 @@ fork(void)
   for (i = 0; i < NPROC; i++) {     // Copy ustack from parent.
     np->ustack[i] = mproc->ustack[i];
     if (mproc->cthread[i] == curproc) {
-      memcpy(np->ustack[0], np->ustack[i], PGSIZE);
-      np->tf->esp = (np->tf->esp - np->ustack[i]) + np->ustack[0];
+      tmp = np->ustack[i];
+      np->ustack[i] = np->ustack[0];
+      np->ustack[0] = tmp;
+      // memmove(np->ustack[0], np->ustack[i], PGSIZE);
+      // np->tf->esp = (np->tf->esp - np->ustack[i]) + np->ustack[0];
     }
   }
 
