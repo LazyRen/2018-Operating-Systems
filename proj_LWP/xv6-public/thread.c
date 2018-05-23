@@ -186,15 +186,6 @@ thread_exit(void *retval)
   // Main thread might be sleeping in wait().
   wakeup1(mproc);
 
-  // Pass abandoned children to init.                     No need I believe
-  // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-  //   if(p->parent == curproc){
-  //     p->parent = initproc;
-  //     if(p->state == ZOMBIE)
-  //       wakeup1(initproc);
-  //   }
-  // }
-
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();

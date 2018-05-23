@@ -70,7 +70,6 @@ struct proc {
   uint ustack[NPROC];          // Allocated ustack.
   int rrlast;                  // Will be used for scheduling. Only main thread will be chosen from scheduler.
                                // And which thread to run under process is determined by round robin.
-  // struct spinlock lock;        // To prevent race condition of thread modification.
 };
 
 // Process memory is laid out contiguously, low addresses first:
