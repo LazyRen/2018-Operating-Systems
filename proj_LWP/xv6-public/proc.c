@@ -25,6 +25,7 @@ int nextpid = 1;
 
 extern void forkret(void);
 extern void trapret(void);
+extern pte_t * walkpgdir(pde_t *pgdir, const void *va, int alloc);
 
 int killzombie(struct proc* curproc);
 void wakeup1(void *chan);
@@ -471,12 +472,16 @@ fork(void)
   *np->tf = *curproc->tf;
   for (i = 0; i < NPROC; i++) {     // Copy ustack from parent.
     np->ustack[i] = mproc->ustack[i];
-    if (mproc->cthread[i] == curproc) {
-      tmp = np->ustack[i];
-      np->ustack[i] = np->ustack[0];
-      np->ustack[0] = tmp;
-      // memmove(np->ustack[0], np->ustack[i], PGSIZE);
-      // np->tf->esp = (np->tf->esp - np->ustack[i]) + np->ustack[0];
+    if (mproc->cthread[i] == curproc && i != 0) {
+      // tmp = np->ustack[i];
+      // np->ustack[i] = np->ustack[0];
+      // np->ustack[0] = tmp;
+      pte_t *pteo = walkpgdir(np->pgdir, (void*)np->ustack[i] - PGSIZE, 0);
+      uint pao = PTE_ADDR(*pteo);
+      pte_t *pten = walkpgdir(np->pgdir, (void*)np->ustack[0] - PGSIZE, 0);
+      uint pan = PTE_ADDR(*pten);
+      memmove((char*)P2V(pan), (char*)P2V(pao), PGSIZE);
+      np->tf->esp = (np->tf->esp - np->ustack[i]) + np->ustack[0];
     }
   }
 
