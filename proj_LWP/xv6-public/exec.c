@@ -102,7 +102,7 @@ exec(char *path, char **argv)
   }
   ustack[3+argc] = 0;
 
-  ustack[0] = 0xdeadbeaf;  // fake return PC
+  ustack[0] = 0xffffffff;  // fake return PC
   ustack[1] = argc;
   ustack[2] = sp - (argc+1)*4;  // argv pointer
 

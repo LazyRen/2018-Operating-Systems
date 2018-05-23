@@ -170,7 +170,7 @@ thread_exit(void *retval)
   }
 
   //save *retval into struct proc.
-  for (int i = 1; i < NPROC; i++)
+  for (int i = 0; i < NPROC; i++)
     if (mproc->cthread[i] == curproc)
       mproc->ret[i] = retval;
 

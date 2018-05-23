@@ -479,19 +479,9 @@ fork(void)
   *np->tf = *curproc->tf;
   for (i = 0; i < NPROC; i++) {     // Copy ustack from parent.
     np->ustack[i] = mproc->ustack[i];
-    if (mproc->cthread[i] == curproc && i != 0) {
-      // uint tmp;
-      // tmp = np->ustack[i];
-      // np->ustack[i] = np->ustack[0];
-      // np->ustack[0] = tmp;
-      pte_t *pteo = walkpgdir(np->pgdir, (void*)np->ustack[i] - PGSIZE, 0);
-      uint pao = PTE_ADDR(*pteo);
-      pte_t *pten = walkpgdir(np->pgdir, (void*)np->ustack[0] - PGSIZE, 0);
-      uint pan = PTE_ADDR(*pten);
-      memmove((char*)P2V(pan), (char*)P2V(pao), PGSIZE);
-      np->tf->esp =  (np->tf->esp - np->ustack[i]) + np->ustack[0];
-      np->tf->eip =  (np->tf->eip - np->ustack[i]) + np->ustack[0];
-    }
+    np->cthread[i] = NULL;
+    if (mproc->cthread[i] == curproc)
+      np->cthread[i] = np;
   }
 
   // Clear %eax so that fork returns 0 in the child.
@@ -583,10 +573,10 @@ killzombie(struct proc* curproc)
   struct proc *p;
   struct proc *mproc = curproc->mthread;
   struct proc *pproc = mproc->parent;
-  for (int i = NPROC - 1; i >= 1; i--) {
+  for (int i = NPROC - 1; i >= 0; i--) {
     if (mproc->cthread[i] && mproc->cthread[i]->state == ZOMBIE) {
       p = mproc->cthread[i];
-      if (p == curproc)
+      if (p == curproc || p == mproc)
         continue;
       // if (p == mproc)
       //   freevm(p->pgdir);
