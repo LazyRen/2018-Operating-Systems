@@ -122,7 +122,7 @@ main(int argc, char *argv[])
 {
   int pid;
   int i, j, k, stride, mlfq;
-  for (i = 0; i < CNT_TEST; i++) {
+  for (i = 7; i < CNT_TEST; i++) {
     mlfq = stride = k = 0;
     for (j = 0; j < CNT_CHILD; j++) {
       if (!strcmp(child_argv[i][j][0], NOOP))

@@ -88,8 +88,8 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     return -1;
   }
 
-  //setup user stack.
-
+  /* setup user stack. */
+  acquire(&ptable.lock);
   for (i = 0; i < NPROC; i++) {
     if (mproc->cthread[i] == NULL) {
       mproc->cthread[i] = np;
@@ -98,6 +98,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
       break;
     }
   }
+  release(&ptable.lock);
 
   if (i == NPROC) {
     np->state = UNUSED;
@@ -108,14 +109,11 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   ustack[2] = 0;
   sp -= sizeof(ustack);
   if(copyout(mproc->pgdir, sp, ustack, sizeof(ustack)) < 0) {
-
     mproc->cthread[i] = NULL;
-
     np->state = UNUSED;
-    // cprintf("copyout from thread_create failed\n");
     return -1;
   }
-  //setup user stack done//
+  /* setup user stack done */
 
 
   np->pgdir = mproc->pgdir;            // shared address space
@@ -142,7 +140,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
-  if (mproc->percentage == 0) //Only if parent is MLFQ proc.
+  if (mproc->percentage == 0 && !np->inqueue) //Only if parent is MLFQ proc.
     initpush(ptable.mlfq.queue[0], np);
 
   release(&ptable.lock);
@@ -156,11 +154,11 @@ void
 thread_exit(void *retval)
 {
   struct proc *curproc = myproc();
-  struct proc *mproc = myproc()->mthread;
+  struct proc *mproc = curproc->mthread;
   int fd;
 
   //Called from main thread
-  if (curproc->mthread == curproc)
+  if (curproc == mproc)
     exit();
 
   // Close all open files.
@@ -238,7 +236,7 @@ thread_join(thread_t thread, void **retval)
       cproc->name[0] = 0;
       cproc->killed = 0;
       cproc->state = UNUSED;
-      if (mproc->percentage == 0)
+      if (cproc->inqueue)
         pop(cproc);
       cproc->ticks = 0;
       cproc->curticks = 0;
@@ -247,6 +245,8 @@ thread_join(thread_t thread, void **retval)
       cproc->timeallotment = 5;
       cproc->percentage = 0;
       cproc->pass = 0;
+      cproc->tid = 0;
+      cproc->mthread = NULL;
       release(&ptable.lock);
       return 0;
     }
