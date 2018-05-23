@@ -98,10 +98,10 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
       break;
     }
   }
-  release(&ptable.lock);
 
   if (i == NPROC) {
     np->state = UNUSED;
+    release(&ptable.lock);
     return -1;
   }
   ustack[0] = 0xffffffff;  // fake return PC
@@ -111,6 +111,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   if(copyout(mproc->pgdir, sp, ustack, sizeof(ustack)) < 0) {
     mproc->cthread[i] = NULL;
     np->state = UNUSED;
+    release(&ptable.lock);
     return -1;
   }
   /* setup user stack done */
@@ -137,7 +138,6 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   np->cthread[0] = NULL;                // Onl main threads will have this value set.
   np->tf->eip = (uint)start_routine;    // Start location of thread is equal to start_routine param.
 
-  acquire(&ptable.lock);
 
   np->state = RUNNABLE;
   if (mproc->percentage == 0 && !np->inqueue) //Only if parent is MLFQ proc.
@@ -201,7 +201,7 @@ thread_join(thread_t thread, void **retval)
 {
   int found = 0, i;
   struct proc *curproc = myproc();
-  struct proc *mproc = myproc()->mthread;
+  struct proc *mproc = curproc->mthread;
   struct proc *cproc;
 
   acquire(&ptable.lock);
@@ -222,6 +222,7 @@ thread_join(thread_t thread, void **retval)
       release(&ptable.lock);
       return -1;
     }
+
 
     if (cproc->state == ZOMBIE) {// If the thread is dead(thread_exit) clean up messes.
       if(retval != NULL)

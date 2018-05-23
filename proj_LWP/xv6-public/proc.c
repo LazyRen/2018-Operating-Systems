@@ -489,7 +489,8 @@ fork(void)
       pte_t *pten = walkpgdir(np->pgdir, (void*)np->ustack[0] - PGSIZE, 0);
       uint pan = PTE_ADDR(*pten);
       memmove((char*)P2V(pan), (char*)P2V(pao), PGSIZE);
-      np->tf->esp = (np->tf->esp - np->ustack[i]) + np->ustack[0];
+      np->tf->esp =  (np->tf->esp - np->ustack[i]) + np->ustack[0];
+      np->tf->eip =  (np->tf->eip - np->ustack[i]) + np->ustack[0];
     }
   }
 
@@ -582,7 +583,7 @@ killzombie(struct proc* curproc)
   struct proc *p;
   struct proc *mproc = curproc->mthread;
   struct proc *pproc = mproc->parent;
-  for (int i = NPROC - 1; i >= 0; i--) {
+  for (int i = NPROC - 1; i >= 1; i--) {
     if (mproc->cthread[i] && mproc->cthread[i]->state == ZOMBIE) {
       p = mproc->cthread[i];
       if (p == curproc)
@@ -633,7 +634,7 @@ wait(void)
       havekids = 1;
       if(p->state == ZOMBIE){
         // If main thread is dead, clean up other threads within that process first.
-        if (p->mthread == p) {
+        if (p == p->mthread) {
           for (int i = 1; i < NPROC; i++)
             if (p->cthread[i])
               p->cthread[i]->state = ZOMBIE;
@@ -966,8 +967,8 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
         p->state = RUNNABLE;
-      // if (p->mthread->state == SLEEPING)
-      //   p->mthread->state = RUNNABLE;
+      if (p->mthread->state == SLEEPING)
+        p->mthread->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
     }
@@ -1017,6 +1018,16 @@ procdump(void)
         cprintf(" %p", pc[i]);
     }
     cprintf("\n");
+    for (int i = 1; i < NPROC; i++) {
+      if (p->cthread[i]) {
+        if(p->cthread[i]->state >= 0 && p->cthread[i]->state < NELEM(states) && states[p->cthread[i]->state])
+          state = states[p->cthread[i]->state];
+        else
+          state = "???";
+          cprintf("%d %s %s ppid:%d mpid:%d\n", p->cthread[i]->pid, state, p->cthread[i]->name,
+                p->cthread[i]->parent->pid, p->cthread[i]->mthread->pid);
+      }
+    }
   }
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < NPROC; j++) {
