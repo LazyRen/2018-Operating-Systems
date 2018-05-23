@@ -224,7 +224,8 @@ set_cpu_share(int percentage)
     ptable.mlfq.percentage -= diff;
     if (mproc->percentage == 0)
       for (int i = 0; i < NPROC; i++)
-        if (mproc->cthread[i] && !mproc->cthread[i]->inqueue)
+        if (mproc->cthread[i] && !mproc->cthread[i]->inqueue
+            && mproc->cthread[i] != ZOMBIE)
           initpush(ptable.mlfq.queue[0], mproc->cthread[i]);
     release(&ptable.lock);
   }
@@ -240,7 +241,8 @@ set_cpu_share(int percentage)
       return -1;
     }
     for (int i = 0; i < NPROC; i++)
-      if (mproc->cthread[i] && mproc->cthread[i]->inqueue)
+      if (mproc->cthread[i] && !mproc->cthread[i]->inqueue
+            && mproc->cthread[i] != ZOMBIE)
         pop(mproc->cthread[i]);
     mproc->percentage = percentage;
     mproc->pass = ptable.minpass;
@@ -585,6 +587,8 @@ killzombie(struct proc* curproc)
       p = mproc->cthread[i];
       if (p == curproc)
         continue;
+      // if (p == mproc)
+      //   freevm(p->pgdir);
       mproc->cthread[i] = NULL;
       kfree(p->kstack);
       p->kstack = 0;
@@ -630,6 +634,9 @@ wait(void)
       if(p->state == ZOMBIE){
         // If main thread is dead, clean up other threads within that process first.
         if (p->mthread == p) {
+          for (int i = 1; i < NPROC; i++)
+            if (p->cthread[i])
+              p->cthread[i]->state = ZOMBIE;
           killzombie(p);
           freevm(p->pgdir);
         }
