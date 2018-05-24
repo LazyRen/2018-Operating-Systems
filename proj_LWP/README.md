@@ -4,6 +4,10 @@
 
 ![SPLIT](./assets/split.png)
 
+**제줄기한 내 마지막 commit (gg) 기준 set_cpu_share에 typo가 존재합니다.<br/>p->cthread[i] == ZOMBIE 라고 되어 있는데 p->cthread[i]->state 여야합니다....**
+
+
+
 
 
 # Table of Contents
