@@ -564,8 +564,8 @@ exit(void)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->parent == mproc){
       p->parent = mproc->parent;
-      if(p->state == ZOMBIE)
-        wakeup1(mproc->parent);
+      // if(p->state == ZOMBIE)
+      //   wakeup1(mproc->parent);
     }
   }
   killzombie(curproc);
@@ -613,7 +613,7 @@ killzombie(struct proc* curproc)
       p->pass = 0;
     }
   }
-  wakeup1(pproc);
+  // wakeup1(pproc);
   return 0;
 }
 
@@ -760,6 +760,7 @@ scheduler(void)
           c->proc = p;
           switchuvm(p);
           p->state = RUNNING;
+          // cprintf("%s %d\n", p->name, p->tid);
           swtch(&(c->scheduler), p->context);
           done = 1;
           p->ticks++;

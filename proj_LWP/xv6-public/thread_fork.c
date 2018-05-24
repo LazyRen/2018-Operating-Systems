@@ -13,16 +13,16 @@ forkthread(void *arg)
         printf(1, "panic at fork in forktest\n");
         exit();
     } else if (pid == 0) {
-        // printf(1, "%d's child %d\n", forkthreadtid, gettid());
+        printf(1, "%d's child %d\n", forkthreadtid, gettid());
         exit();
     } else {
-        // printf(1, "parent tid: %d\n", forkthreadtid);
+        printf(1, "parent tid: %d\n", forkthreadtid);
         if (wait() == -1) {
             printf(1, "panic at wait in forktest\n");
             exit();
         }
     }
-    printf(1, "parent tid: %d calling thread_exit\n", forkthreadtid);
+    // printf(1, "parent tid: %d calling thread_exit\n", forkthreadtid);
     thread_exit(forkthreadtid);
 }
 
@@ -42,10 +42,10 @@ main(int argc, char *argv[])
     for (i = 0; i < NUM_THREAD; i++) {
         if (thread_join(threads[i], &retval) != 0) {
             printf(1, "panic at thread_join %d not collected\n", (int)retval);
-            // exit();
+            exit();
         }
-        else
-            printf(1, "%d collected\n", (int)retval);
+        // else
+        //     printf(1, "%d collected\n", (int)retval);
     }
     exit();
 }
