@@ -107,6 +107,7 @@ LWP implementation을 위하여 4개의 새로운 함수가 추가되었으며 �
 
 - `int killzombie(struct proc* curproc)`<br/>
   인자로 받은 프로세스의 스레드 중 ZOMBIE인 스레드들은 정리합니다. 해당 함수를 호출할때에는 극히 조심하여야 합니다.<br/>`wait()`혹은 `thread_join()`을 통해 기다리던 스레드가 원하는 반환값을 못 받을 수도 있기 때문입니다.<br/>그렇기에 `killzombie()`는 `exit()`, `wait()`, `exec()` 세 함수에서 메인 스레드가 정리될 시에만 호출됩니다.<br/>해당 함수를 호출함으로서 ZOMBIE 프로세스가 불필요하게 ZOMBIE 상태를 오랫동안 유지하는 것을 방지합니다.<br/>`killzombie()` 함수는 ptable의 proc 구조체들을 직접적으로 변경하기 때문에 ptable.lock을 잡아주어야 합니다.<br/>
+  **기존에 thread_fork에서 발생하던 thread_join에러는 확인 결과 자고 있어야할 shell이 순간 일어나면서 스레드를 정리해주어서 발생하는것으로 확인 되었습니다.<br/>이는 기본적으로 `exit()`에서만 사용하려고 처음 디자인 하였던 `killzombie()`를 다른 곳에서도 사용하면서 몇가지 변경을 하였는데, 그 과정에서 `wakeup1(pproc)` 라인이 제거가 되지 않아 shell을 깨우게 되었던 것으로 확인 되었습니다.**
 
 <br/>
 ## Fixed
