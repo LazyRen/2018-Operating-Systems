@@ -35,7 +35,7 @@ exec(char *path, char **argv)
   struct proc *mproc = curproc->mthread;
 
   //free oldpgdir iff this was main thread.
-  shouldfree = curproc == mproc ? 1 : 0;
+  shouldfree = (curproc == mproc) ? 1 : 0;
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -153,8 +153,8 @@ exec(char *path, char **argv)
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
   switchuvm(curproc);
-  // if (shouldfree)
-  //   freevm(oldpgdir);
+  if (shouldfree)
+    freevm(oldpgdir);
   return 0;
 
  bad:

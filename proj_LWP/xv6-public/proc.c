@@ -225,7 +225,7 @@ set_cpu_share(int percentage)
     if (mproc->percentage == 0)
       for (int i = 0; i < NPROC; i++)
         if (mproc->cthread[i] && !mproc->cthread[i]->inqueue
-            && mproc->cthread[i] != ZOMBIE)
+            && mproc->cthread[i]->state != ZOMBIE)
           initpush(ptable.mlfq.queue[0], mproc->cthread[i]);
     release(&ptable.lock);
   }
@@ -242,7 +242,7 @@ set_cpu_share(int percentage)
     }
     for (int i = 0; i < NPROC; i++)
       if (mproc->cthread[i] && !mproc->cthread[i]->inqueue
-            && mproc->cthread[i] != ZOMBIE)
+            && mproc->cthread[i]->state != ZOMBIE)
         pop(mproc->cthread[i]);
     mproc->percentage = percentage;
     mproc->pass = ptable.minpass;
@@ -403,6 +403,7 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
+  p->parent = p;
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");

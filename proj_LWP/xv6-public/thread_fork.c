@@ -34,13 +34,13 @@ main(int argc, char *argv[])
     for (i = 0; i < NUM_THREAD; i++) {
         if (thread_create(&threads[i], forkthread, (void*)0) != 0) {
             printf(1, "panic at thread_create\n");
-            return -1;
+            exit();
         }
     }
     for (i = 0; i < NUM_THREAD; i++) {
         if (thread_join(threads[i], &retval) != 0) {
             printf(1, "panic at thread_join %d\n", i);
-            return -1;
+            exit();
         }
     }
     exit();
