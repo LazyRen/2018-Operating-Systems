@@ -31,6 +31,7 @@ int set_cpu_share(int);
 int thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg);
 void thread_exit(void*) __attribute__((noreturn));
 int thread_join(thread_t thread, void **retval);
+int gettid(void);
 
 // ulib.c
 int stat(char*, struct stat*);

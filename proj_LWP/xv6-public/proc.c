@@ -175,6 +175,18 @@ boostpriority(void)
   ptable.mlfq.index[1] = ptable.mlfq.index[2] = 0;
 }
 
+int
+gettid(void)
+{
+  return myproc()->tid;
+}
+
+int
+sys_gettid(void)
+{
+  return gettid();
+}
+
 // Returns priority of MLFQ.
 // Attempting to get priority of stride proc is
 // undefined behavior.
@@ -184,8 +196,7 @@ boostpriority(void)
 int
 getlev(void)
 {
-  struct proc *p = myproc();
-  return p->priority;
+  return myproc()->priority;
 }
 
 

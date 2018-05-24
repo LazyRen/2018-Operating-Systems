@@ -217,13 +217,6 @@ thread_join(thread_t thread, void **retval)
       }
     }
 
-    if (!found) {// If there is no such thread exist, ERROR occurs.
-      // You must create thread before ask for join.
-      release(&ptable.lock);
-      return -1;
-    }
-
-
     if (cproc->state == ZOMBIE) {// If the thread is dead(thread_exit) clean up messes.
       if(retval != NULL)
         *retval = mproc->ret[i];
@@ -250,6 +243,12 @@ thread_join(thread_t thread, void **retval)
       cproc->mthread = NULL;
       release(&ptable.lock);
       return 0;
+    }
+
+    if (!found) {// If there is no such thread exist, ERROR occurs.
+      // You must create thread before ask for join.
+      release(&ptable.lock);
+      return -1;
     }
 
     // No point waiting if main thread or callee thread is killed.

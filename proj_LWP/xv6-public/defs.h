@@ -127,6 +127,8 @@ void            droppriority(struct proc* p);
 void            boostpriority(void);
 int             getlev(void);
 int             set_cpu_share(int precentage);
+int				getpid(void);
+int				gettid(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
