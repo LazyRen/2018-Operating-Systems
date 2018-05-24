@@ -75,8 +75,8 @@ xv6는 프로세스가 스케쥴링의 기본 단위임에도 불구하고, 스�
 
 <br/>
 
-* `struct spinlock lock`: 동시 다발적으로 메인 스레드의 정보를 update하는 과정에서 race condition이 일어나는 것을 방지하기 위해 사용되는 락입니다.<br/>
-     ptable 락을 잡을 경우 필요가 없지만 이는 더 큰 overhead를 불러올 수 있기때문에 적용하였으며, multi cpu 상황에서 발생할 수 있는 race condition 방지용이기에 CPUS=1인 상황에서는 존재유무가 영향을 미치지 않습니다.<br/>
+* ~~`struct spinlock lock`: 동시 다발적으로 메인 스레드의 정보를 update하는 과정에서 race condition이 일어나는 것을 방지하기 위해 사용되는 락입니다.~~<br/>
+     ~~ptable 락을 잡을 경우 필요가 없지만 이는 더 큰 overhead를 불러올 수 있기때문에 적용하였으며, multi cpu 상황에서 발생할 수 있는 race condition 방지용이기에 CPUS=1인 상황에서는 존재유무가 영향을 미치지 않습니다.~~<br/>ptable.lock을 사용하는 것으로 변경하였습니다.<br/>
 
 <br/>
 # Functions
