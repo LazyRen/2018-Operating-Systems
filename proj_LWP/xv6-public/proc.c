@@ -175,18 +175,6 @@ boostpriority(void)
   ptable.mlfq.index[1] = ptable.mlfq.index[2] = 0;
 }
 
-int
-gettid(void)
-{
-  return myproc()->tid;
-}
-
-int
-sys_gettid(void)
-{
-  return gettid();
-}
-
 // Returns priority of MLFQ.
 // Attempting to get priority of stride proc is
 // undefined behavior.
@@ -196,7 +184,8 @@ sys_gettid(void)
 int
 getlev(void)
 {
-  return myproc()->priority;
+  struct proc *p = myproc();
+  return p->priority;
 }
 
 
@@ -252,8 +241,8 @@ set_cpu_share(int percentage)
       return -1;
     }
     for (int i = 0; i < NPROC; i++)
-      if (mproc->cthread[i] && !mproc->cthread[i]->inqueue
-            && mproc->cthread[i]->state != ZOMBIE)
+      if (mproc->cthread[i] && mproc->cthread[i]->inqueue
+          && mproc->cthread[i]->state != ZOMBIE)
         pop(mproc->cthread[i]);
     mproc->percentage = percentage;
     mproc->pass = ptable.minpass;
@@ -414,7 +403,6 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
-  p->parent = p;
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -491,9 +479,14 @@ fork(void)
   *np->tf = *curproc->tf;
   for (i = 0; i < NPROC; i++) {     // Copy ustack from parent.
     np->ustack[i] = mproc->ustack[i];
-    np->cthread[i] = NULL;
-    if (mproc->cthread[i] == curproc)
-      np->cthread[i] = np;
+    if (mproc->cthread[i] == curproc && i != 0) {
+      pte_t *pteo = walkpgdir(np->pgdir, (void*)np->ustack[i] - PGSIZE, 0);
+      uint pao = PTE_ADDR(*pteo);
+      pte_t *pten = walkpgdir(np->pgdir, (void*)np->ustack[0] - PGSIZE, 0);
+      uint pan = PTE_ADDR(*pten);
+      memmove((char*)P2V(pan), (char*)P2V(pao), PGSIZE);
+      np->tf->esp = (np->tf->esp - np->ustack[i]) + np->ustack[0];
+    }
   }
 
   // Clear %eax so that fork returns 0 in the child.
@@ -564,8 +557,8 @@ exit(void)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->parent == mproc){
       p->parent = mproc->parent;
-      // if(p->state == ZOMBIE)
-      //   wakeup1(mproc->parent);
+      if(p->state == ZOMBIE)
+        wakeup1(mproc->parent);
     }
   }
   killzombie(curproc);
@@ -584,14 +577,11 @@ killzombie(struct proc* curproc)
 {
   struct proc *p;
   struct proc *mproc = curproc->mthread;
-  struct proc *pproc = mproc->parent;
-  for (int i = NPROC - 1; i >= 0; i--) {
+  for (int i = 1; i < NPROC; i++) {
     if (mproc->cthread[i] && mproc->cthread[i]->state == ZOMBIE) {
       p = mproc->cthread[i];
-      if (p == curproc || p == mproc)
+      if (p == curproc)
         continue;
-      // if (p == mproc)
-      //   freevm(p->pgdir);
       mproc->cthread[i] = NULL;
       kfree(p->kstack);
       p->kstack = 0;
@@ -613,7 +603,6 @@ killzombie(struct proc* curproc)
       p->pass = 0;
     }
   }
-  // wakeup1(pproc);
   return 0;
 }
 
@@ -636,10 +625,7 @@ wait(void)
       havekids = 1;
       if(p->state == ZOMBIE){
         // If main thread is dead, clean up other threads within that process first.
-        if (p == p->mthread) {
-          for (int i = 1; i < NPROC; i++)
-            if (p->cthread[i])
-              p->cthread[i]->state = ZOMBIE;
+        if (p->mthread == p) {
           killzombie(p);
           freevm(p->pgdir);
         }
@@ -760,7 +746,6 @@ scheduler(void)
           c->proc = p;
           switchuvm(p);
           p->state = RUNNING;
-          // cprintf("%s %d\n", p->name, p->tid);
           swtch(&(c->scheduler), p->context);
           done = 1;
           p->ticks++;
@@ -970,8 +955,8 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
         p->state = RUNNABLE;
-      if (p->mthread->state == SLEEPING)
-        p->mthread->state = RUNNABLE;
+      // if (p->mthread->state == SLEEPING)
+      //   p->mthread->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
     }
@@ -1021,16 +1006,6 @@ procdump(void)
         cprintf(" %p", pc[i]);
     }
     cprintf("\n");
-    for (int i = 1; i < NPROC; i++) {
-      if (p->cthread[i]) {
-        if(p->cthread[i]->state >= 0 && p->cthread[i]->state < NELEM(states) && states[p->cthread[i]->state])
-          state = states[p->cthread[i]->state];
-        else
-          state = "???";
-          cprintf("%d %s %s ppid:%d mpid:%d\n", p->cthread[i]->pid, state, p->cthread[i]->name,
-                p->cthread[i]->parent->pid, p->cthread[i]->mthread->pid);
-      }
-    }
   }
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < NPROC; j++) {

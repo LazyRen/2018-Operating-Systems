@@ -175,6 +175,18 @@ boostpriority(void)
   ptable.mlfq.index[1] = ptable.mlfq.index[2] = 0;
 }
 
+int
+gettid(void)
+{
+  return myproc()->tid;
+}
+
+int
+sys_gettid(void)
+{
+  return gettid();
+}
+
 // Returns priority of MLFQ.
 // Attempting to get priority of stride proc is
 // undefined behavior.
@@ -184,8 +196,7 @@ boostpriority(void)
 int
 getlev(void)
 {
-  struct proc *p = myproc();
-  return p->priority;
+  return myproc()->priority;
 }
 
 
@@ -224,9 +235,9 @@ set_cpu_share(int percentage)
     ptable.mlfq.percentage -= diff;
     if (mproc->percentage == 0)
       for (int i = 0; i < NPROC; i++)
-        if (mproc->cthread[i] && !mproc->cthread[i]->inqueue) {
+        if (mproc->cthread[i] && !mproc->cthread[i]->inqueue
+            && mproc->cthread[i]->state != ZOMBIE)
           initpush(ptable.mlfq.queue[0], mproc->cthread[i]);
-        }
     release(&ptable.lock);
   }
   else {
@@ -240,12 +251,13 @@ set_cpu_share(int percentage)
       release(&ptable.lock);
       return -1;
     }
+    for (int i = 0; i < NPROC; i++)
+      if (mproc->cthread[i] && !mproc->cthread[i]->inqueue
+            && mproc->cthread[i]->state != ZOMBIE)
+        pop(mproc->cthread[i]);
     mproc->percentage = percentage;
     mproc->pass = ptable.minpass;
     ptable.mlfq.percentage -= percentage;
-    for (int i = 0; i < NPROC; i++)
-      if (mproc->cthread[i] && mproc->cthread[i]->inqueue)
-        pop(mproc->cthread[i]);
     release(&ptable.lock);
   }
 
@@ -333,6 +345,8 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->chan = NULL;
+  p->killed = 0;
   p->ticks = 0;
   p->curticks = 0;
   p->priority = 0;
@@ -400,6 +414,7 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
+  p->parent = p;
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -476,18 +491,9 @@ fork(void)
   *np->tf = *curproc->tf;
   for (i = 0; i < NPROC; i++) {     // Copy ustack from parent.
     np->ustack[i] = mproc->ustack[i];
-    if (mproc->cthread[i] == curproc) {
-      // uint tmp;
-      // tmp = np->ustack[i];
-      // np->ustack[i] = np->ustack[0];
-      // np->ustack[0] = tmp;
-      pte_t *pteo = walkpgdir(np->pgdir, (void*)np->ustack[i] - PGSIZE, 0);
-      uint pao = PTE_ADDR(*pteo);
-      pte_t *pten = walkpgdir(np->pgdir, (void*)np->ustack[0] - PGSIZE, 0);
-      uint pan = PTE_ADDR(*pten);
-      memmove((char*)P2V(pan), (char*)P2V(pao), PGSIZE);
-      np->tf->esp = (np->tf->esp - np->ustack[i]) + np->ustack[0];
-    }
+    np->cthread[i] = NULL;
+    if (mproc->cthread[i] == curproc)
+      np->cthread[i] = np;
   }
 
   // Clear %eax so that fork returns 0 in the child.
@@ -529,7 +535,7 @@ exit(void)
 
   // Close all open files.
   for (int i = 0; i < NPROC; i++) {
-    if (mproc->cthread[i]) {
+    if (mproc->cthread[i] && mproc->cthread[i]->state != ZOMBIE) {
       for(fd = 0; fd < NOFILE; fd++){
         if(mproc->cthread[i]->ofile[fd]){
           fileclose(mproc->cthread[i]->ofile[fd]);
@@ -546,24 +552,24 @@ exit(void)
 
   acquire(&ptable.lock);
 
-  // Parent might be sleeping in wait().
-  wakeup1(mproc->parent);
   for (int i = 0; i < NPROC; i++) {
     if (mproc->cthread[i]) {
       mproc->cthread[i]->state = ZOMBIE;
     }
   }
+  // Parent might be sleeping in wait().
+  wakeup1(mproc->parent);
 
   // Pass abandoned children to main thread's parent
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->parent == mproc){
       p->parent = mproc->parent;
-      if(p->state == ZOMBIE)
-        wakeup1(mproc->parent);
+      // if(p->state == ZOMBIE)
+      //   wakeup1(mproc->parent);
     }
   }
-
   killzombie(curproc);
+
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
@@ -572,25 +578,28 @@ exit(void)
 
 // Kill LWP that is zombie.
 // Notice that current thread never gets cleaned up from this function.
+// ptable.lock must be held before calling
 int
 killzombie(struct proc* curproc)
 {
   struct proc *p;
   struct proc *mproc = curproc->mthread;
   struct proc *pproc = mproc->parent;
-  for (int i = 1; i < NPROC; i++) {
+  for (int i = NPROC - 1; i >= 0; i--) {
     if (mproc->cthread[i] && mproc->cthread[i]->state == ZOMBIE) {
       p = mproc->cthread[i];
-      if (p == curproc)
+      if (p == curproc || p == mproc)
         continue;
+      // if (p == mproc)
+      //   freevm(p->pgdir);
+      mproc->cthread[i] = NULL;
       kfree(p->kstack);
       p->kstack = 0;
-      if (p == p->mthread)
-        freevm(p->pgdir);
       p->pid = 0;
       p->parent = 0;
       p->name[0] = 0;
       p->killed = 0;
+      p->chan = NULL;
       p->state = UNUSED;
       if (p->inqueue)
         pop(p);
@@ -604,7 +613,7 @@ killzombie(struct proc* curproc)
       p->pass = 0;
     }
   }
-  wakeup1(pproc);
+  // wakeup1(pproc);
   return 0;
 }
 
@@ -627,18 +636,30 @@ wait(void)
       havekids = 1;
       if(p->state == ZOMBIE){
         // If main thread is dead, clean up other threads within that process first.
-        if (p->mthread == p)
+        if (p == p->mthread) {
+          for (int i = 1; i < NPROC; i++)
+            if (p->cthread[i])
+              p->cthread[i]->state = ZOMBIE;
           killzombie(p);
+          freevm(p->pgdir);
+        }
+        else {
+          for (int i = 0; i < NPROC; i++) {
+            if (p->mthread->cthread[i] == p) {
+              p->mthread->cthread[i] = NULL;
+              break;
+            }
+          }
+        }
         // Found one.
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        if (p == p->mthread)
-          freevm(p->pgdir);
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
+        p->chan = NULL;
         p->state = UNUSED;
         if (p->inqueue)
           pop(p);
@@ -703,9 +724,9 @@ scheduler(void)
     if (ptable.mlfq.percentage != 100){
       for (int i = 0; i < NPROC; i++) {
         if (ptable.proc[i].percentage == 0
-            || ptable.proc[i].state == ZOMBIE
             || ptable.proc[i].state == UNUSED
-            || ptable.proc[i].state == EMBRYO)
+            || ptable.proc[i].state == EMBRYO
+            || ptable.proc[i].state == ZOMBIE)
           continue;
         if (minpass > ptable.proc[i].pass) {
           mproc = &ptable.proc[i];
@@ -739,6 +760,7 @@ scheduler(void)
           c->proc = p;
           switchuvm(p);
           p->state = RUNNING;
+          // cprintf("%s %d\n", p->name, p->tid);
           swtch(&(c->scheduler), p->context);
           done = 1;
           p->ticks++;
@@ -999,6 +1021,16 @@ procdump(void)
         cprintf(" %p", pc[i]);
     }
     cprintf("\n");
+    for (int i = 1; i < NPROC; i++) {
+      if (p->cthread[i]) {
+        if(p->cthread[i]->state >= 0 && p->cthread[i]->state < NELEM(states) && states[p->cthread[i]->state])
+          state = states[p->cthread[i]->state];
+        else
+          state = "???";
+          cprintf("%d %s %s ppid:%d mpid:%d\n", p->cthread[i]->pid, state, p->cthread[i]->name,
+                p->cthread[i]->parent->pid, p->cthread[i]->mthread->pid);
+      }
+    }
   }
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < NPROC; j++) {

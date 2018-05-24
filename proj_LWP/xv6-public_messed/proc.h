@@ -60,7 +60,7 @@ struct proc {
   int timeallotment;           // Priority will be decreased if reached.
   int percentage;              // If 0, it means it's MLFQ. Else consider it as a stride scheduler.
   int pass;                    // Counter for stride sceduling
-  int inqueue;
+  int inqueue;                 // If 1, it is in actual MLFQ queue, else already poped from queue.
 
   // Thread Related variables
   int tid;                     // If main thread, pid == tid.

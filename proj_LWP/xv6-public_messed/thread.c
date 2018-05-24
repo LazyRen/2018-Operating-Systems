@@ -88,8 +88,8 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     return -1;
   }
 
-  //setup user stack.
-
+  /* setup user stack. */
+  acquire(&ptable.lock);
   for (i = 0; i < NPROC; i++) {
     if (mproc->cthread[i] == NULL) {
       mproc->cthread[i] = np;
@@ -101,6 +101,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
   if (i == NPROC) {
     np->state = UNUSED;
+    release(&ptable.lock);
     return -1;
   }
   ustack[0] = 0xffffffff;  // fake return PC
@@ -108,14 +109,12 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   ustack[2] = 0;
   sp -= sizeof(ustack);
   if(copyout(mproc->pgdir, sp, ustack, sizeof(ustack)) < 0) {
-
     mproc->cthread[i] = NULL;
-
     np->state = UNUSED;
-    // cprintf("copyout from thread_create failed\n");
+    release(&ptable.lock);
     return -1;
   }
-  //setup user stack done//
+  /* setup user stack done */
 
 
   np->pgdir = mproc->pgdir;            // shared address space
@@ -139,10 +138,9 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
   np->cthread[0] = NULL;                // Onl main threads will have this value set.
   np->tf->eip = (uint)start_routine;    // Start location of thread is equal to start_routine param.
 
-  acquire(&ptable.lock);
 
   np->state = RUNNABLE;
-  if (mproc->percentage == 0) //Only if parent is MLFQ proc.
+  if (mproc->percentage == 0 && !np->inqueue) //Only if parent is MLFQ proc.
     initpush(ptable.mlfq.queue[0], np);
 
   release(&ptable.lock);
@@ -156,11 +154,11 @@ void
 thread_exit(void *retval)
 {
   struct proc *curproc = myproc();
-  struct proc *mproc = myproc()->mthread;
+  struct proc *mproc = curproc->mthread;
   int fd;
 
   //Called from main thread
-  if (curproc->mthread == curproc)
+  if (curproc == mproc)
     exit();
 
   // Close all open files.
@@ -172,7 +170,7 @@ thread_exit(void *retval)
   }
 
   //save *retval into struct proc.
-  for (int i = 1; i < NPROC; i++)
+  for (int i = 0; i < NPROC; i++)
     if (mproc->cthread[i] == curproc)
       mproc->ret[i] = retval;
 
@@ -219,12 +217,6 @@ thread_join(thread_t thread, void **retval)
       }
     }
 
-    if (!found) {// If there is no such thread exist, ERROR occurs.
-      // You must create thread before ask for join.
-      release(&ptable.lock);
-      return -1;
-    }
-
     if (cproc->state == ZOMBIE) {// If the thread is dead(thread_exit) clean up messes.
       if(retval != NULL)
         *retval = mproc->ret[i];
@@ -238,7 +230,7 @@ thread_join(thread_t thread, void **retval)
       cproc->name[0] = 0;
       cproc->killed = 0;
       cproc->state = UNUSED;
-      if (mproc->percentage == 0)
+      if (cproc->inqueue)
         pop(cproc);
       cproc->ticks = 0;
       cproc->curticks = 0;
@@ -247,8 +239,16 @@ thread_join(thread_t thread, void **retval)
       cproc->timeallotment = 5;
       cproc->percentage = 0;
       cproc->pass = 0;
+      cproc->tid = 0;
+      cproc->mthread = NULL;
       release(&ptable.lock);
       return 0;
+    }
+
+    if (!found) {// If there is no such thread exist, ERROR occurs.
+      // You must create thread before ask for join.
+      release(&ptable.lock);
+      return -1;
     }
 
     // No point waiting if main thread or callee thread is killed.

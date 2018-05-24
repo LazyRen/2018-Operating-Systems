@@ -8,22 +8,20 @@ void*
 forkthread(void *arg)
 {
     int pid;
-    int forkthreadtid = gettid();
     if ((pid = fork()) == -1) {
         printf(1, "panic at fork in forktest\n");
         exit();
     } else if (pid == 0) {
-        printf(1, "%d's child %d\n", forkthreadtid, gettid());
+        printf(1, "child\n");
         exit();
     } else {
-        printf(1, "parent tid: %d\n", forkthreadtid);
+        printf(1, "parent\n");
         if (wait() == -1) {
             printf(1, "panic at wait in forktest\n");
             exit();
         }
     }
-    // printf(1, "parent tid: %d calling thread_exit\n", forkthreadtid);
-    thread_exit(forkthreadtid);
+    thread_exit(0);
 }
 
 int
@@ -36,16 +34,14 @@ main(int argc, char *argv[])
     for (i = 0; i < NUM_THREAD; i++) {
         if (thread_create(&threads[i], forkthread, (void*)0) != 0) {
             printf(1, "panic at thread_create\n");
-            exit();
+            return -1;
         }
     }
     for (i = 0; i < NUM_THREAD; i++) {
         if (thread_join(threads[i], &retval) != 0) {
-            printf(1, "panic at thread_join %d not collected\n", (int)retval);
-            exit();
+            printf(1, "panic at thread_join\n");
+            return -1;
         }
-        // else
-        //     printf(1, "%d collected\n", (int)retval);
     }
     exit();
 }

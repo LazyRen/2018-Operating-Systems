@@ -35,7 +35,7 @@ exec(char *path, char **argv)
   struct proc *mproc = curproc->mthread;
 
   //free oldpgdir iff this was main thread.
-  shouldfree = (curproc == mproc) ? 1 : 0;
+  shouldfree = curproc == mproc ? 1 : 0;
   begin_op();
 
   if((ip = namei(path)) == 0){

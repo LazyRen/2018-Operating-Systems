@@ -35,7 +35,7 @@ exec(char *path, char **argv)
   struct proc *mproc = curproc->mthread;
 
   //free oldpgdir iff this was main thread.
-  shouldfree = curproc == mproc ? 1 : 0;
+  shouldfree = (curproc == mproc) ? 1 : 0;
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -117,7 +117,7 @@ exec(char *path, char **argv)
   safestrcpy(curproc->name, last, sizeof(curproc->name));
 
   // Push to mlfq
-  if (mproc->percentage != 0 && !curproc->inqueue)
+  if (mproc->percentage != 0)
     initpush(ptable.mlfq.queue[0], curproc);
 
   // Clean up threads resources

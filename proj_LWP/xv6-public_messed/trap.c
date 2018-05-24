@@ -88,11 +88,11 @@ trap(struct trapframe *tf)
       panic("trap");
     }
     // In user space, assume process misbehaved.
-    cprintf("pid %d tid %d %s: trap %d err %d on cpu %d "
+    cprintf("pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",
-            myproc()->pid, myproc()->tid, myproc()->name, tf->trapno,
+            myproc()->pid, myproc()->name, tf->trapno,
             tf->err, cpuid(), tf->eip, rcr2());
-    myproc()->mthread->killed = 1;
+    myproc()->killed = 1;
   }
 
   // Force process exit if it has been killed and is in user space.
@@ -105,7 +105,7 @@ trap(struct trapframe *tf)
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
     tf->trapno == T_IRQ0+IRQ_TIMER) {
-    if (myproc()->mthread->percentage != 0) //In case of stride scheduling, yield every single time interrupt(1tick)
+    if (!myproc()->inqueue) //In case of stride scheduling, yield every single time interrupt(1tick)
       yield();
     if ((myproc()->curticks+1) % myproc()->timequantum == 0) {
       //Because yield will lead into scheduler() and it will raise tick from there,
@@ -120,6 +120,7 @@ trap(struct trapframe *tf)
   }
 
   // Check if the process has been killed since we yielded
-  if(myproc() && myproc()->mthread->killed && (tf->cs&3) == DPL_USER)
+  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER) {
     exit();
+  }
 }
