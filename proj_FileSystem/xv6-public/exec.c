@@ -131,7 +131,7 @@ exec(char *path, char **argv)
         }
       }
       mproc->cthread[i]->state = ZOMBIE;
-      wakeup(mproc->parent);
+      // wakeup(mproc->parent);
     }
   }
   acquire(&ptable.lock);

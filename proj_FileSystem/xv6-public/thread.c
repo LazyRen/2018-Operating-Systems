@@ -209,7 +209,7 @@ thread_join(thread_t thread, void **retval)
   for(;;){
     found = 0;
 
-    for (i = 0; i < NPROC; i++) { // Find worker thread
+    for (i = 1; i < NPROC; i++) { // Find worker thread
       if (mproc->cthread[i] && mproc->cthread[i]->tid == thread) {
         cproc = mproc->cthread[i];
         found = 1;

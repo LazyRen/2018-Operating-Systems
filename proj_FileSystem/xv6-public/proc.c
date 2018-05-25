@@ -620,28 +620,30 @@ wait(void)
     // Scan through table looking for exited children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != curproc->mthread)
+      if(p->parent != curproc->mthread || p->mthread != p)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
-        // If main thread is dead, clean up other threads within that process first.
-        if (p->mthread == p) {
-          killzombie(p);
-          freevm(p->pgdir);
-        }
-        else {
-          for (int i = 0; i < NPROC; i++) {
-            if (p->mthread->cthread[i] == p) {
-              p->mthread->cthread[i] = NULL;
-              break;
+        for (int i = 1; i < NPROC; i++) {
+          if (p->cthread[i] && p->cthread[i]->state != ZOMBIE) {
+            // Close all open files.
+            for(int fd = 0; fd < NOFILE; fd++){
+              if(p->cthread[i]->ofile[fd]){
+                fileclose(p->cthread[i]->ofile[fd]);
+                p->cthread[i]->ofile[fd] = 0;
+              }
             }
+            p->cthread[i]->state = ZOMBIE;
+            // wakeup(mproc->parent);
           }
         }
+        killzombie(p);
         // Found one.
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
         p->pid = 0;
+        freevm(p->pgdir);
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
@@ -955,8 +957,8 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
         p->state = RUNNABLE;
-      // if (p->mthread->state == SLEEPING)
-      //   p->mthread->state = RUNNABLE;
+      if (p->mthread->state == SLEEPING)
+        p->mthread->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
     }
