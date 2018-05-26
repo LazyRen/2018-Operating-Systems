@@ -143,11 +143,12 @@ main(int argc, char *argv[])
         exit();
       } else {
         printf(1, "fork failed!!\n");
-      }
         exit();
+      }
     }
 
     for (j = 0; j < k; j++) {
+      // printf(1, "wait %d\n", j);
       wait();
     }
     printf(1, "\nMLFQ: %d STRIDE: %d\nTOTAL:%d procs\ntest %d done\n\n", mlfq, stride, mlfq+stride, i+1);
