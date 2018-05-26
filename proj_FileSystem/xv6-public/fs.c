@@ -423,7 +423,7 @@ bmap(struct inode *ip, uint bn)
   }
   bn -= NDINDIRECT;
 
-  if(bn < NTINDIRECT){// double indirect
+  if(bn < NTINDIRECT){// triple indirect
     // Load indirect block, allocating if necessary.
     uint quotient = bn / NDINDIRECT; // to acess first INDIRECT
     bn = bn % NDINDIRECT;
@@ -472,14 +472,14 @@ itrunc(struct inode *ip)
   struct buf *bp, *dbp, *tbp;
   uint *a, *da, *ta;
 
-  cprintf("\nDIRECT\n");
+
   for(i = 0; i < NDIRECT; i++){
     if(ip->addrs[i]){
       bfree(ip->dev, ip->addrs[i]);
       ip->addrs[i] = 0;
     }
   }
-  cprintf("\nINDIRECT\n");
+
   if(ip->addrs[NDIRECT]){
     bp = bread(ip->dev, ip->addrs[NDIRECT]);
     a = (uint*)bp->data;
@@ -491,7 +491,7 @@ itrunc(struct inode *ip)
     bfree(ip->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
   }
-  cprintf("\nDINDIRECT\n");
+
   if(ip->addrs[NDIRECT+1]){
     dbp = bread(ip->dev, ip->addrs[NDIRECT+1]);
     da = (uint*)dbp->data;
@@ -510,18 +510,16 @@ itrunc(struct inode *ip)
     bfree(ip->dev, ip->addrs[NDIRECT+1]);
     ip->addrs[NDIRECT+1] = 0;
   }
-  cprintf("\nTINDIRECT\n");
+
   if(ip->addrs[NDIRECT+2]){
     tbp = bread(ip->dev, ip->addrs[NDIRECT+2]);
     ta = (uint*)tbp->data;
     for(i = 0; i < NINDIRECT; i++){
       if(ta[i]) {
-        cprintf("i: %d\n", i);
         dbp = bread(ip->dev, ta[i]);
         da = (uint*)dbp->data;
         for (j = 0; j < NINDIRECT; j++) {
           if(da[j]) {
-            cprintf("j: %d\n", j);
             bp = bread(ip->dev, da[j]);
             a = (uint*)bp->data;
             for (k = 0; k < NINDIRECT; k++)
