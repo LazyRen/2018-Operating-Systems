@@ -25,7 +25,7 @@ Inode의 총 addr 변수의 크기는 13으로 고정되어 있으며 이를 변
 
 기존의 존재하던 코드에서 indirect 상황을 참고하여 doubly와 triple 상황을 추가해 주면 됩니다.<br/>
 
-
+![bmap_01](./assets/bmap_01.png)
 
 ![bmap_02](./assets/bmap_02.png)
 
