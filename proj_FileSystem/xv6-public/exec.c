@@ -76,7 +76,7 @@ exec(char *path, char **argv)
   iunlockput(ip);
   end_op();
   ip = 0;
-
+  acquire(&ptable.lock);
   // Allocate all NPROC user stacks for future use.
   // Allocate two pages at the next page boundary.
   // Make the first inaccessible.  Use the second as the user stack.
@@ -134,9 +134,9 @@ exec(char *path, char **argv)
       // wakeup(mproc->parent);
     }
   }
-  acquire(&ptable.lock);
+
   killzombie(curproc);
-  release(&ptable.lock);
+
   curproc->pid = curproc->tid;
   curproc->mthread = curproc;
   for (int i = 0; i < NPROC; i++) {
@@ -155,6 +155,7 @@ exec(char *path, char **argv)
   switchuvm(curproc);
   if (shouldfree)
     freevm(oldpgdir);
+  release(&ptable.lock);
   return 0;
 
  bad:

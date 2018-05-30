@@ -8,7 +8,7 @@
 
 # Original xv6 File System
 
-기존 xv6는 각각의 파일당 하나의 inode를 유지하며 inode에는 inum, ref, lock, valid, type 등 많은 metadata와 13개의 실제 data block을 가르키는 addr 변수를 가지고 있습니다.<br/>이 13개의 addr중 마지막 1개를 제외한 12개는 direct block addr로 쓰이며 마지막은 하나의 data block을 indirect block으로 사용하여 하나의 inode는 총 12 + (BSIZE / sizeof(uint)), 즉 140개의 data block을 가리킬 수 있습니다. 각각의 data block은 512 bytes 이므로 xv6 내에서 사용가능한 최대 파일의 크기는 70KB 밖에 안됩니다.<br/>더 큰 파일을 사용하기 위해서는 inode는 address system이 double, triple indirect block addressing을 접목시켜야합니다.![goal](./assets/goal.png)
+기존 xv6는 각각의 파일당 하나의 inode를 유지하며 inode에는 inum, ref, lock, valid, type 등 많은 metadata와 13개의 실제 data block을 가르키는 addr 변수를 가지고 있습니다.<br/>이 13개의 addr중 마지막 1개를 제외한 12개는 direct block addr로 쓰이며 마지막은 하나의 data block을 indirect block으로 사용하여 하나의 inode는 총 12 + (BSIZE / sizeof(uint)), 즉 140개의 data block을 가리킬 수 있습니다. 각각의 data block은 512 bytes 이므로 xv6 내에서 사용가능한 최대 파일의 크기는 70KB 밖에 안됩니다.<br/>더 큰 파일을 사용하기 위해서는 inode는 address system에 double, triple indirect block addressing을 접목시켜야합니다.![goal](./assets/goal.png)
 
 # Supporting Large File
 
