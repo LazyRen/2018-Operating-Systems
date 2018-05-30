@@ -529,17 +529,19 @@ exit(void)
 
   // Close all open files.
   for (int i = 0; i < NPROC; i++) {
-    if (mproc->cthread[i] && mproc->cthread[i]->state != ZOMBIE) {
+    if (mproc->cthread[i]) {
       for(fd = 0; fd < NOFILE; fd++){
         if(mproc->cthread[i]->ofile[fd]){
           fileclose(mproc->cthread[i]->ofile[fd]);
           mproc->cthread[i]->ofile[fd] = 0;
         }
       }
-      begin_op();
-      iput(mproc->cthread[i]->cwd);
-      end_op();
-      mproc->cthread[i]->cwd = 0;
+      if(mproc->cthread[i]->cwd){
+        begin_op();
+        iput(mproc->cthread[i]->cwd);
+        end_op();
+        mproc->cthread[i]->cwd = 0;
+      }
     }
   }
 
@@ -633,6 +635,12 @@ wait(void)
                 fileclose(p->cthread[i]->ofile[fd]);
                 p->cthread[i]->ofile[fd] = 0;
               }
+            }
+            if(p->cthread[i]->cwd){
+              begin_op();
+              iput(p->cthread[i]->cwd);
+              end_op();
+              p->cthread[i]->cwd = 0;
             }
             p->cthread[i]->state = ZOMBIE;
             // wakeup(mproc->parent);
@@ -958,8 +966,7 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
         p->state = RUNNABLE;
-      if (p->mthread->state == SLEEPING)
-        p->mthread->state = RUNNABLE;
+      p->mthread->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
     }

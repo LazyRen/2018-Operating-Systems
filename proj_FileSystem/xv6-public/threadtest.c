@@ -113,6 +113,7 @@ main(int argc, char *argv[])
       ret = testfunc[i]();
       write(gpipe[1], (char*)&ret, sizeof(ret));
       close(gpipe[1]);
+      printf(1,"%d. %s exiting\n", i, testname[i]);
       exit();
     } else{
       close(gpipe[1]);

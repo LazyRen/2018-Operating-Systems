@@ -33,14 +33,24 @@ exec(char *path, char **argv)
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
   struct proc *mproc = curproc->mthread;
+  enum procstate state[NPROC];
+
+  acquire(&ptable.lock);
+  for (i = 0; i < NPROC; i++) {
+    if (mproc->cthread[i] && mproc->cthread[i] != curproc) {
+      state[i] = mproc->cthread[i]->state;
+      mproc->cthread[i]->state = ZOMBIE;
+    }
+  }
+  release(&ptable.lock);
 
   //free oldpgdir iff this was main thread.
-  shouldfree = curproc == mproc ? 1 : 0;
-  begin_op();
+  shouldfree = (curproc == mproc) ? 1 : 0;
 
+  begin_op();
   if((ip = namei(path)) == 0){
     end_op();
-    cprintf("exec: fail\n");
+    goto bad;
     return -1;
   }
   ilock(ip);
@@ -76,7 +86,6 @@ exec(char *path, char **argv)
   iunlockput(ip);
   end_op();
   ip = 0;
-  acquire(&ptable.lock);
   // Allocate all NPROC user stacks for future use.
   // Allocate two pages at the next page boundary.
   // Make the first inaccessible.  Use the second as the user stack.
@@ -130,11 +139,15 @@ exec(char *path, char **argv)
           mproc->cthread[i]->ofile[fd] = 0;
         }
       }
-      mproc->cthread[i]->state = ZOMBIE;
-      // wakeup(mproc->parent);
+      if(mproc->cthread[i]->cwd){
+        begin_op();
+        iput(mproc->cthread[i]->cwd);
+        end_op();
+        mproc->cthread[i]->cwd = 0;
+      }
     }
   }
-
+  acquire(&ptable.lock);
   killzombie(curproc);
 
   curproc->pid = curproc->tid;
@@ -165,5 +178,12 @@ exec(char *path, char **argv)
     iunlockput(ip);
     end_op();
   }
+  acquire(&ptable.lock);
+  for (i = 0; i < NPROC; i++) {
+    if (mproc->cthread[i] && mproc->cthread[i] != curproc) {
+      mproc->cthread[i]->state = state[i];
+    }
+  }
+  release(&ptable.lock);
   return -1;
 }
