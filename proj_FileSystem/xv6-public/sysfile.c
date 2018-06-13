@@ -79,6 +79,18 @@ sys_read(void)
 }
 
 int
+sys_pread(void)
+{
+  struct file *f;
+  int n;
+  char *p;
+  uint off;
+  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0 || argint(3, &off) < 0)
+    return -1;
+  return filepread(f, p, n, off);
+}
+
+int
 sys_write(void)
 {
   struct file *f;
@@ -88,6 +100,19 @@ sys_write(void)
   if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
     return -1;
   return filewrite(f, p, n);
+}
+
+int
+sys_pwrite(void)
+{
+  struct file *f;
+  int n;
+  char *p;
+  uint off;
+
+  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0 || argint(3, &off) < 0)
+    return -1;
+  return filepwrite(f, p, n, off);
 }
 
 int
@@ -375,7 +400,7 @@ sys_chdir(void)
   char *path;
   struct inode *ip;
   struct proc *curproc = myproc();
-  
+
   begin_op();
   if(argstr(0, &path) < 0 || (ip = namei(path)) == 0){
     end_op();
