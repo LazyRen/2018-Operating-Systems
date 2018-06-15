@@ -183,6 +183,8 @@ filepwrite(struct file *f, char *addr, int n, uint off)
   if(f->type == FD_PIPE)
     return pipewrite(f->pipe, addr, n);
   if(f->type == FD_INODE){
+    if (off > f->ip->size)
+      catchupoffset(f->ip, off);
     // write a few blocks at a time to avoid exceeding
     // the maximum log transaction size, including
     // i-node, indirect block, allocation blocks,

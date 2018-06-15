@@ -58,18 +58,27 @@ Doubly indirect까지 사용하였을 경우 File System은 8MB를 조금 넘는
 해당 함수들의 추가를 위하여 세 파일을 변경합니다. 기존 존재하던 pread, write 관련 함수들을 변경한 함수들에는 'p'가 붙어있음에 주의합니다.
 
 - sysfile.c<br/>
-	- `int sys_pread(void)`<br/>sys_read에 추가하여 4번째 인자 offset을 읽은 후 `int filepread()` 함수를 호출합니다.<br/>
-	- `int sys_pwrite(void)`<br/>sys_write에 추가하여 4번째 인자 offset을 읽은 후 sys_read에 추가하여 4번째 인자 offset을 읽은 후 `int filewrite()` 함수를 호출합니다.<br/>
+  - `int sys_pread(void)`<br/>sys_read에 추가하여 4번째 인자 offset을 읽은 후 `int filepread()` 함수를 호출합니다.<br/>
+  - `int sys_pwrite(void)`<br/>sys_write에 추가하여 4번째 인자 offset을 읽은 후 sys_read에 추가하여 4번째 인자 offset을 읽은 후 `int filewrite()` 함수를 호출합니다.<br/>
 - file.c
-	* `int filepread(struct file *f, char *addr, int n, uint off)`<br/>f->off를 더이상 변경하지 않습니다.
-	* `int filepwrite(struct file *f, char *addr, int n, uint off)`<br/>`writei()`가 아닌 `pwritei()`를 호출하며, f->off를 더이상 변경하지 않습니다.<br/>
+  * `int filepread(struct file *f, char *addr, int n, uint off)`<br/>f->off를 더이상 변경하지 않습니다.
+  * `int filepwrite(struct file *f, char *addr, int n, uint off)`<br/>`writei()`가 아닌 `pwritei()`를 호출하며, f->off를 더이상 변경하지 않습니다. 만약 주어진 off가 f->ip->size, 즉 파일 사이즈보다 크다면 `catchupoffset()` 함수를 호출하여 해당 hole에 block mapping을 실행합니다.<br/>
 - fs.c
-	* `int pwritei(struct inode *ip, char *src, uint off, uint n)`<br/>`writei()` 함수에서 딱 한 줄이 변경됩니다.<br/>` if(off > ip->size || off + n < off)` 부분에서 off > ip->size를 체크하는 부분이 사라지며 이로 인해 write하려는 부분의 offset이 현재 파일크기보다 클 경우에도 정상적으로 `pwrite()`가 가능해집니다. 이는 `bmap()` 함수 내부에서 현재 offset이 위치하는 블럭이 할당되지 않았을 경우 자동으로 할당해주기 때문에 가능한 방법입니다.
+  * `int pwritei(struct inode *ip, char *src, uint off, uint n)`<br/>`writei()` 함수에서 딱 한 줄이 변경됩니다.<br/>` if(off > ip->size || off + n < off)` 부분에서 off > ip->size를 체크하는 부분이 사라지며 이로 인해 write하려는 부분의 offset이 현재 파일크기보다 클 경우에도 정상적으로 `pwrite()`가 가능해집니다. 이는 `bmap()` 함수 내부에서 현재 offset이 위치하는 블럭이 할당되지 않았을 경우 자동으로 할당해주기 때문에 가능한 방법입니다.
+  * `void catchupoffset(struct inode *ip, uint off)`<br/>pwrite의 off가 파일 사이즈를 넘겼을때 빈 공간에도 적절하게 데이터 블럭을 alloc 하기위해 사용되는 함수입니다. 이 함수가 없을 경우 hole에 접근하려는 read는 모두 `readi()`의`bmap()`에서 블럭을 할당하려고 하며, 이는 곧 `panic("log_write outside of trans");`이 일어나는 상황이 됩니다.
 
 
+
+### Dealing with Holes
+
+Hole 이란 pwrite의 offset이 파일의 최대 offset(즉, 파일의 현재크기)를 넘어가게 될 경우 최대 offset - pwrite offset 사이에 생기게 되는 공백을 뜻합니다.<br/>Linux에서 pwrite는 이 경우 해당 사이를 '\0' 즉, NULL 값으로 채워넣습니다.<br/>동일한 동작을 수행하기 위하여 fs.c 내부의 `catchupoffset()`이라는 함수를 hole이 생길시(자세한 내용은 Implementation 참조) 호출하여 해당 hole을 채우도록 block mapping을 수행합니다. 이를 통해 read, pread를 통해 해당 hole내부의 값에 panic 없이 접근할 수 있습니다.
+
+테스트 결과는 변경된 pwritetest.c 파일의 결과값을 통해 확인할 수 있습니다.
 
 ## Results
 
 무명의 학우분께서 Piazza에 올려주신 테스트 케이스에 offset이 변경되지 않음을 체크하는 약간의 변경을 추가하여 테스트를 진행하였습니다. <br/>메인 스레드는 일반 `write()`, `read()`  함수를 호출하며 파일의 오프셋을 변경해가며 데이터를 확인하므로 스레드들이 `pread()`, `pwrite()`를 호출하여도 f->off가 변경되지 않음을 확실시 합니다.<br/>테스트 출력결과를 통해 현재 파일의 크기보다 큰 offset에 `pwrite()`를 호출하여도 정상적으로 데이터가 write됨을 확인할 수  있습니다.
 
 ![result_04](./assets/result_04.png)
+
+![result_05](./assets/result_05.png)

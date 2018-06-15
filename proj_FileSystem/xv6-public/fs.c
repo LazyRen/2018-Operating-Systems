@@ -649,6 +649,23 @@ pwritei(struct inode *ip, char *src, uint off, uint n)
   return n;
 }
 
+void
+catchupoffset(struct inode *ip, uint off)
+{
+  int cur = ip->size/BSIZE;
+  int desti = off/BSIZE;
+  struct buf *bp;
+  for (; cur <= desti; cur++) {
+    begin_op();
+    ilock(ip);
+    bp = bread(ip->dev, bmap(ip, cur));
+    log_write(bp);
+    iunlock(ip);
+    brelse(bp);
+    end_op();
+  }
+}
+
 //PAGEBREAK!
 // Directories
 
