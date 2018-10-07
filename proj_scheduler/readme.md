@@ -22,7 +22,7 @@ Table of Contents
 	  * [구조체](#구조체-1)
 	  * [추가된 함수](#추가된-함수-1)
 	  * [Scheduler](#scheduler-1)
-   * [Tests & Results](#Tests--Results)
+   * [Tests & Results](#tests--results)
 
 <!--te-->
 
