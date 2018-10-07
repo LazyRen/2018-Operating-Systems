@@ -22,7 +22,7 @@ Table of Contents
 	  * [구조체](#구조체-1)
 	  * [추가된 함수](#추가된-함수-1)
 	  * [Scheduler](#scheduler-1)
-   * [Results & Tests](#results-tests)
+   * [Tests & Results](#Tests--Results)
 
 <!--te-->
 
@@ -349,6 +349,6 @@ else {
 만약 minpass를 가진 proc이 MLFQ가 아니라면 해당 proc을 실행시킵니다.<br>
 이미 minpass를 확인하는 과정에서 변수 p가 해당 proc을 가르키고 있으므로 기존 xv6의 scheduler와 비슷하게 동작하며, pass 값을 증가시키는 부분이 추가되었습니다.
 
-# Results & Tests
+# Tests & Results
 
 스크린샷이 많은 관계로 [result.md](./result.md) 파일을 확인해주시기 바랍니다.
