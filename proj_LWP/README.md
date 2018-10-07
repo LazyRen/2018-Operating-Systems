@@ -83,11 +83,13 @@ xv6는 프로세스가 스케쥴링의 기본 단위임에도 불구하고, 스�
      ~~ptable 락을 잡을 경우 필요가 없지만 이는 더 큰 overhead를 불러올 수 있기때문에 적용하였으며, multi cpu 상황에서 발생할 수 있는 race condition 방지용이기에 CPUS=1인 상황에서는 존재유무가 영향을 미치지 않습니다.~~<br/>ptable.lock을 사용하는 것으로 변경하였습니다.<br/>
 
 <br/>
+
 # Functions
 
 LWP implementation을 위하여 4개의 새로운 함수가 추가되었으며 그 중 3개는 system call입니다. 또한 기존에 존재하던 함수들 또한 변경되었으며 이들은 다음과 같습니다.
 
 <br/>
+
 ## Newly Created
 
 - `int thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)`: system call<br/>
@@ -148,6 +150,7 @@ LWP implementation을 위하여 4개의 새로운 함수가 추가되었으며 �
 - `void procdump(void)`<br/>디버깅의 용이성을 위해 부모 프로세스와 메인 스레드의 tid를 추가적으로 출력하도록 합니다.<br/>
 
 <br/>
+
 # Design Policy
 
 코딩을 시작하기전 참고하기 위해 제작한 [draft file](./assets/LWP.pdf)입니다.<br/>
@@ -165,6 +168,7 @@ LWP의 디자인은 많은 부분 POSIX Thread Design Policy를 따르고 있습
 앞서 말했듯이 LWP를 기본적으로 프로세스라고 생각하기보다는 메인 스레드에 종속된 작업 스레드에 불과하다고 생각하고 xv6가 구현되어있습니다.<br/>이는 많은 상황에서 작업 스레드가 특정 작업을 실행할경우 해당 결과가 메인 스레드에도 영향을 미침을 의미합니다.<br/>`fork()`, `exit()`, `growproc()`, `sbrk()`, `kill()`등의 함수의 호출이 이에 해당됩니다.<br/>
 
 <br/>
+
 # Test & Result
 
 threadtest 실행시 xv6가 생성하는 proc들의 관계도 입니다.<br/>
