@@ -46,6 +46,7 @@ xv6는 프로세스가 스케쥴링의 기본 단위임에도 불구하고, 스�
 코드에서 통일되게 사용된 변수들은 mproc/mthread == 메인 스레드, curproc == 현재 프로세스(스레드), cthread == 작업 스레드 등이 있습니다.<br/>proc 구조체 내부의 변수와 함수에서 사용되는 변수를 구분하고 기존 코드와의 통일성 유지를 위하여 부득이하게 thread/proc 용어가 혼용되어 사용되었습니다.<br/>
 
 <br/>
+
 # Proc Structure
 
 ![Screen Shot 1](assets/Screen Shot 1.png)
@@ -116,6 +117,7 @@ LWP implementation을 위하여 4개의 새로운 함수가 추가되었으며 �
   **기존에 thread_fork에서 발생하던 thread_join에러는 확인 결과 자고 있어야할 shell이 순간 일어나면서 스레드를 정리해주어서 발생하는것으로 확인 되었습니다.<br/>이는 기본적으로 `exit()`에서만 사용하려고 처음 디자인 하였던 `killzombie()`를 다른 곳에서도 사용하면서 몇가지 변경을 하였는데, 그 과정에서 `wakeup1(pproc)` 라인이 제거가 되지 않아 shell을 깨우게 되었던 것으로 확인 되었습니다.**
 
 <br/>
+
 ## Fixed
 
 - `int set_cpu_share(int percentage)`<br/>호출한 프로세스의 메인 스레드의 stride ticket을 설정합니다.<br/>[Design Policy](#Design-Policy)에서 설명하였듯이 stride scheduler는 메인 스레드만을 관리하며 메인 스레드가 선택되었을때 내부에서 rrlast 변수를 이용하여 메인 스레드를 포함한 작업 스레드 간의 실행은 round robin policy를 준용하여 실행됩니다.<br/>cpu_share가 설정되지 않았을 경우 모든 스레드들은 MLFQ scheduler의 영향을 받으며 새로 fork, exec를 실행한 프로세스 또한 기존 프로세스의 cpu share에 상관없이 MLFQ의 영향을 받습니다.<br/>
