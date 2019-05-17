@@ -48,7 +48,7 @@ xv6는 프로세스가 스케쥴링의 기본 단위임에도 불구하고, 스�
 
 # Proc Structure
 
-![Screen Shot 1](./assets/Screen Shot 1.png)
+![Screen Shot 1](./assets/ScreenShot1.png)
 
 스레드와 관련되어 추가된 변수들은 proc 구조체에서 아래쪽에 위치하고 있습니다.<br/>
 
