@@ -6,7 +6,7 @@
 
 This repository contains projects for the 2018 Hanyang Univ. *Operating System Course* taught by Professor Jung, Hyung Soo.
 
-If you find this repo helpful, please provide ![star](https://img.shields.io/github/stars/LazyRen/2018-Operating-Systems?style=social) to credit to the author.
+If you find this repo helpful, please provide ![star](https://img.shields.io/github/stars/LazyRen/2018-Operating-Systems?style=social) to credit the author.
 
 ## Projects
 
